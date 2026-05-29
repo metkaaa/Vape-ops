@@ -268,13 +268,10 @@ async function testSupabaseConnection() {
 
 function setLoading(loading) {
   state.loading = loading;
-  if (saleForm) {
-    saleForm.querySelectorAll("input, button").forEach((el) => {
-      el.disabled = loading;
-    });
-  }
   if (loading) {
     setSyncStatus("SYNC…", "loading");
+  } else if (useCloud && supabase) {
+    setSyncStatus("CLOUD VERBUNDEN", "ok");
   } else if (isSupabaseConfigured()) {
     setSyncStatus("CLOUD VERBUNDEN", "ok");
   }
@@ -381,7 +378,7 @@ async function setActiveProfile(name) {
 
   try {
     await Promise.race([
-      loadAllSales(),
+      loadAllSales({ silent: true }),
       new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Zeitüberschreitung")), 12000)
       ),
@@ -390,6 +387,9 @@ async function setActiveProfile(name) {
     console.error(loadError);
     loadFromLocalStorage();
     setSyncStatus("OFFLINE MODUS", "error");
+  } finally {
+    setLoading(false);
+    state.loading = false;
   }
 
   updateUI();
@@ -454,8 +454,6 @@ async function handleSaleSubmit(event) {
     alert("Bitte zuerst Aron oder Mehmet wählen.");
     return;
   }
-  if (state.loading) return;
-
   state.activeProfile = profileName;
   window.__activeProfile = profileName;
 
@@ -789,7 +787,11 @@ function updateCharts() {
 function updateUI() {
   updateStats();
   renderSalesList();
-  updateCharts();
+  try {
+    updateCharts();
+  } catch (chartErr) {
+    console.warn("Charts update:", chartErr);
+  }
 }
 
 function bindDomRefs() {
@@ -830,16 +832,21 @@ window.onProfilePicked = function (name) {
   setActiveProfile(name);
 };
 
+window.__runSaleSubmit = function (event) {
+  handleSaleSubmit(event);
+};
+
 window.submitSale = function (event) {
   handleSaleSubmit(event);
 };
 
 function initApp() {
   bindDomRefs();
+  state.loading = false;
   initCostInfo();
   setupEvents();
   initSupabase();
-  testSupabaseConnection();
+  testSupabaseConnection().catch(console.error);
 
   if (window.__pendingProfile) {
     setActiveProfile(window.__pendingProfile);

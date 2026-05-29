@@ -616,6 +616,12 @@ main {
   box-shadow: 0 0 50px var(--lime-glow);
 }
 
+.primary-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
 .primary-button span {
   position: relative;
   z-index: 1;
