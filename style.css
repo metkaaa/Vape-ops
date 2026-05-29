@@ -374,6 +374,18 @@ main {
 
 #dashboard.hidden {
   display: none !important;
+  pointer-events: none !important;
+}
+
+#dashboard:not(.hidden) {
+  pointer-events: auto;
+}
+
+#submitSaleBtn {
+  position: relative;
+  z-index: 50;
+  pointer-events: auto !important;
+  cursor: pointer;
 }
 
 /* Nach Profilwahl: Hero ausblenden, Dashboard sofort sichtbar */

@@ -107,7 +107,11 @@
               <span class="panel-tag">02 // SALE INPUT</span>
               <h2 class="panel-title">Verkauf erfassen</h2>
             </div>
-            <form id="saleForm" class="sale-form">
+            <form
+              id="saleForm"
+              class="sale-form"
+              onsubmit="window.submitSale(event); return false;"
+            >
               <div class="form-field">
                 <label for="buyerName">Käufer</label>
                 <input
@@ -141,12 +145,7 @@
                     required
                   />
                 </div>
-                <button
-                  type="button"
-                  id="submitSaleBtn"
-                  class="primary-button"
-                  onclick="window.submitSale(event)"
-                >
+                <button type="submit" id="submitSaleBtn" class="primary-button">
                   <span>Verkauf buchen</span>
                 </button>
               </div>
@@ -279,5 +278,13 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      if (typeof window.submitSale !== "function") {
+        window.submitSale = function (e) {
+          if (e) e.preventDefault();
+          alert("app.js nicht geladen. Bitte Strg+F5 drücken.");
+        };
+      }
+    </script>
   </body>
 </html>

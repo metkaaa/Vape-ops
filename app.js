@@ -1,10 +1,3 @@
-window.submitSale = function (event) {
-  if (event) event.preventDefault();
-  if (typeof handleSaleSubmit === "function") {
-    handleSaleSubmit(event);
-  }
-};
-
 const TOTAL_VAPES = 160;
 const TOTAL_COST = 980;
 const COST_PER_VAPE = TOTAL_COST / TOTAL_VAPES;
@@ -832,8 +825,19 @@ function bindDomRefs() {
 
 function setupEvents() {
   changeProfileBtn?.addEventListener("click", resetToProfileSelection);
-  saleForm?.addEventListener("submit", handleSaleSubmit);
+  saleForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleSaleSubmit(e);
+  });
   undoLastSaleBtn?.addEventListener("click", undoLastSale);
+
+  const saleBtn = document.getElementById("submitSaleBtn");
+  if (saleBtn) {
+    saleBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      handleSaleSubmit(e);
+    });
+  }
 }
 
 window.enterProfile = function (name) {
@@ -862,8 +866,22 @@ function initApp() {
   }
 }
 
+window.submitSale = function (event) {
+  if (event) event.preventDefault();
+  return handleSaleSubmit(event);
+};
+
+function bootApp() {
+  try {
+    initApp();
+  } catch (err) {
+    console.error("Init fehlgeschlagen:", err);
+    alert("App-Fehler: " + err.message + "\n\nBitte F5 drücken.");
+  }
+}
+
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initApp);
+  document.addEventListener("DOMContentLoaded", bootApp);
 } else {
-  initApp();
+  bootApp();
 }
