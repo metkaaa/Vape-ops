@@ -1,6 +1,6 @@
 const TOTAL_VAPES = 160;
 const TOTAL_COST = 980;
-const COST_PER_VAPE = TOTAL_COST / TOTAL_VAPES; // 6.125 €
+const COST_PER_VAPE = TOTAL_COST / TOTAL_VAPES;
 
 const CHART_THEME = {
   lime: "#d4ff00",
@@ -11,11 +11,14 @@ const CHART_THEME = {
 
 const state = {
   activeProfile: null,
+  loading: false,
   profiles: {
     Aron: { sales: [] },
     Mehmet: { sales: [] },
   },
 };
+
+let supabase = null;
 
 const costPerVapeEl = document.getElementById("costPerVape");
 const profileSelectSection = document.getElementById("profile-select");
@@ -34,6 +37,8 @@ const statCostEl = document.getElementById("statCost");
 const statProfitEl = document.getElementById("statProfit");
 const salesListEl = document.getElementById("salesList");
 const undoLastSaleBtn = document.getElementById("undoLastSaleBtn");
+const syncStatusEl = document.getElementById("syncStatus");
+const syncDotEl = document.getElementById("syncDot");
 
 let revenueChart;
 let profitChart;
@@ -63,10 +68,6 @@ function formatDateTime(date) {
   }).format(date);
 }
 
-function createSaleId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
 function getProfile(name) {
   return state.profiles[name];
 }
@@ -85,9 +86,120 @@ function recalculateTotals(profile) {
   }
 }
 
-function refreshProfile(name) {
-  const profile = getProfile(name);
-  recalculateTotals(profile);
+function recalculateAllTotals() {
+  recalculateTotals(getProfile("Aron"));
+  recalculateTotals(getProfile("Mehmet"));
+}
+
+function mapRowFromDb(row) {
+  return {
+    id: row.id,
+    buyerName: row.buyer_name,
+    price: Number(row.price),
+    qty: row.qty,
+    revenue: Number(row.revenue),
+    cost: Number(row.cost),
+    profit: Number(row.profit),
+    seller: row.seller,
+    timestamp: new Date(row.created_at),
+  };
+}
+
+function isSupabaseConfigured() {
+  const cfg = window.SUPABASE_CONFIG;
+  return (
+    cfg &&
+    cfg.url &&
+    cfg.anonKey &&
+    !cfg.url.includes("DEIN-PROJEKT") &&
+    !cfg.anonKey.includes("DEIN-ANON")
+  );
+}
+
+function initSupabase() {
+  if (!isSupabaseConfigured()) {
+    setSyncStatus("SUPABASE FEHLT", "error");
+    return false;
+  }
+
+  supabase = window.supabase.createClient(
+    window.SUPABASE_CONFIG.url,
+    window.SUPABASE_CONFIG.anonKey
+  );
+
+  supabase
+    .channel("sales-live")
+    .on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "sales" },
+      () => {
+        if (state.activeProfile) {
+          loadAllSales({ silent: true });
+        }
+      }
+    )
+    .subscribe();
+
+  setSyncStatus("CLOUD VERBUNDEN", "ok");
+  return true;
+}
+
+function setSyncStatus(text, mode = "ok") {
+  if (syncStatusEl) syncStatusEl.textContent = text;
+  if (syncDotEl) {
+    syncDotEl.classList.toggle("sync-dot--error", mode === "error");
+    syncDotEl.classList.toggle("sync-dot--loading", mode === "loading");
+  }
+}
+
+function setLoading(loading) {
+  state.loading = loading;
+  if (saleForm) {
+    saleForm.querySelectorAll("input, button").forEach((el) => {
+      el.disabled = loading;
+    });
+  }
+  if (loading) {
+    setSyncStatus("SYNC…", "loading");
+  } else if (isSupabaseConfigured()) {
+    setSyncStatus("CLOUD VERBUNDEN", "ok");
+  }
+}
+
+async function loadAllSales({ silent = false } = {}) {
+  if (!supabase) return;
+
+  if (!silent) setLoading(true);
+
+  const { data, error } = await supabase
+    .from("sales")
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    alert("Daten konnten nicht geladen werden: " + error.message);
+    setSyncStatus("LADEFEHler", "error");
+    setLoading(false);
+    return;
+  }
+
+  state.profiles.Aron.sales = [];
+  state.profiles.Mehmet.sales = [];
+
+  for (const row of data) {
+    const sale = mapRowFromDb(row);
+    if (state.profiles[sale.seller]) {
+      state.profiles[sale.seller].sales.push(sale);
+    }
+  }
+
+  recalculateAllTotals();
+  setLoading(false);
+
+  if (state.activeProfile) {
+    updateUI();
+  }
 }
 
 function initCostInfo() {
@@ -96,7 +208,14 @@ function initCostInfo() {
   }
 }
 
-function setActiveProfile(name) {
+async function setActiveProfile(name) {
+  if (!supabase) {
+    alert(
+      "Supabase ist nicht konfiguriert.\n\nTrage url und anonKey in config.js ein."
+    );
+    return;
+  }
+
   state.activeProfile = name;
 
   profileSelectSection.classList.add("hidden");
@@ -115,6 +234,7 @@ function setActiveProfile(name) {
     initCharts();
   }
 
+  await loadAllSales();
   updateUI();
 }
 
@@ -124,9 +244,9 @@ function resetToProfileSelection() {
   profileSelectSection.classList.remove("hidden");
 }
 
-function handleSaleSubmit(event) {
+async function handleSaleSubmit(event) {
   event.preventDefault();
-  if (!state.activeProfile) return;
+  if (!state.activeProfile || !supabase || state.loading) return;
 
   const buyerName = buyerNameInput.value.trim();
   const price = parseFloat(salePriceInput.value.replace(",", "."));
@@ -143,51 +263,64 @@ function handleSaleSubmit(event) {
     return;
   }
 
-  const profile = getProfile(state.activeProfile);
   const revenue = price * qty;
   const cost = COST_PER_VAPE * qty;
   const profit = revenue - cost;
 
-  profile.sales.push({
-    id: createSaleId(),
-    buyerName,
+  setLoading(true);
+
+  const { error } = await supabase.from("sales").insert({
+    seller: state.activeProfile,
+    buyer_name: buyerName,
     price,
     qty,
     revenue,
     cost,
     profit,
-    seller: state.activeProfile,
-    timestamp: new Date(),
   });
 
-  recalculateTotals(profile);
+  setLoading(false);
+
+  if (error) {
+    console.error(error);
+    alert("Verkauf konnte nicht gespeichert werden: " + error.message);
+    return;
+  }
 
   saleForm.reset();
   saleQuantityInput.value = "1";
-
-  updateUI();
+  await loadAllSales({ silent: true });
 }
 
-function deleteSale(saleId) {
-  if (!state.activeProfile) return;
+async function deleteSale(saleId) {
+  if (!state.activeProfile || !supabase || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
-  const index = profile.sales.findIndex((s) => s.id === saleId);
-  if (index === -1) return;
+  const sale = profile.sales.find((s) => s.id === saleId);
+  if (!sale) return;
 
-  const sale = profile.sales[index];
   const ok = confirm(
     `Verkauf an „${sale.buyerName}“ (${sale.qty}× ${formatCurrency(sale.price)}) wirklich löschen?`
   );
   if (!ok) return;
 
-  profile.sales.splice(index, 1);
-  recalculateTotals(profile);
-  updateUI();
+  setLoading(true);
+
+  const { error } = await supabase.from("sales").delete().eq("id", saleId);
+
+  setLoading(false);
+
+  if (error) {
+    console.error(error);
+    alert("Löschen fehlgeschlagen: " + error.message);
+    return;
+  }
+
+  await loadAllSales({ silent: true });
 }
 
-function undoLastSale() {
-  if (!state.activeProfile) return;
+async function undoLastSale() {
+  if (!state.activeProfile || !supabase || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
   if (profile.sales.length === 0) return;
@@ -198,9 +331,7 @@ function undoLastSale() {
   );
   if (!ok) return;
 
-  profile.sales.pop();
-  recalculateTotals(profile);
-  updateUI();
+  await deleteSale(last.id);
 }
 
 function renderSalesList() {
@@ -209,7 +340,7 @@ function renderSalesList() {
   const profile = getProfile(state.activeProfile);
 
   if (undoLastSaleBtn) {
-    undoLastSaleBtn.disabled = profile.sales.length === 0;
+    undoLastSaleBtn.disabled = profile.sales.length === 0 || state.loading;
   }
 
   if (profile.sales.length === 0) {
@@ -237,7 +368,7 @@ function renderSalesList() {
             </div>
           </div>
           <div class="sale-item-actions">
-            <button type="button" class="delete-sale-btn" data-sale-id="${sale.id}">
+            <button type="button" class="delete-sale-btn" data-sale-id="${sale.id}" ${state.loading ? "disabled" : ""}>
               Löschen
             </button>
           </div>
@@ -280,9 +411,7 @@ function chartBaseOptions(currencyY = false) {
   };
   return {
     responsive: true,
-    plugins: {
-      legend: { display: false },
-    },
+    plugins: { legend: { display: false } },
     scales: {
       x: scaleDefaults,
       y: {
@@ -290,9 +419,7 @@ function chartBaseOptions(currencyY = false) {
         beginAtZero: true,
         ticks: {
           ...scaleDefaults.ticks,
-          ...(currencyY
-            ? { callback: (value) => formatCurrency(value) }
-            : {}),
+          ...(currencyY ? { callback: (value) => formatCurrency(value) } : {}),
         },
       },
     },
@@ -464,10 +591,8 @@ function setupProfileCards() {
 
 function setupEvents() {
   setupProfileCards();
-
   changeProfileBtn.addEventListener("click", resetToProfileSelection);
   saleForm.addEventListener("submit", handleSaleSubmit);
-
   if (undoLastSaleBtn) {
     undoLastSaleBtn.addEventListener("click", undoLastSale);
   }
@@ -477,4 +602,5 @@ document.addEventListener("DOMContentLoaded", () => {
   initCostInfo();
   setupEvents();
   setupCursorGlow();
+  initSupabase();
 });
