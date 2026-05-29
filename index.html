@@ -19,10 +19,46 @@
       <div class="bg-glow bg-glow--cyan"></div>
       <div class="bg-scanlines"></div>
     </div>
-    <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
-
     <div class="app-root" id="appRoot">
-      <header class="hero">
+      <section id="profile-select" class="panel profile-select-panel landing-profiles">
+        <div class="panel-header">
+          <span class="panel-tag">01 // DRIVER SELECT</span>
+          <h2 class="panel-title">Wer fährt gerade?</h2>
+          <p class="panel-desc">Tippe auf dein Profil:</p>
+        </div>
+        <div class="profile-grid">
+          <button
+            type="button"
+            class="profile-card profile-card--aron"
+            data-profile="Aron"
+          >
+            <div class="profile-card-inner">
+              <div class="avatar avatar-aron">A</div>
+              <div class="profile-card-text">
+                <div class="profile-name">Aron</div>
+                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+              </div>
+              <span class="profile-enter">ENTER →</span>
+            </div>
+          </button>
+          <button
+            type="button"
+            class="profile-card profile-card--mehmet"
+            data-profile="Mehmet"
+          >
+            <div class="profile-card-inner">
+              <div class="avatar avatar-mehmet">M</div>
+              <div class="profile-card-text">
+                <div class="profile-name">Mehmet</div>
+                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+              </div>
+              <span class="profile-enter">ENTER →</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <header class="hero hero--landing">
         <div class="hero-badge">
           <span class="pulse-dot" id="syncDot"></span>
           <span id="syncStatus">CLOUD SYNC</span>
@@ -50,48 +86,6 @@
       </header>
 
       <main class="main-content">
-        <section id="profile-select" class="panel profile-select-panel">
-          <div class="panel-header">
-            <span class="panel-tag">01 // DRIVER SELECT</span>
-            <h2 class="panel-title">Wer fährt gerade?</h2>
-            <p class="panel-desc">Tippe auf dein Profil:</p>
-          </div>
-          <div class="profile-grid">
-            <button
-              type="button"
-              class="profile-card profile-card--aron"
-              data-profile="Aron"
-              onclick="window.enterProfile('Aron')"
-            >
-              <span class="profile-card-glow"></span>
-              <div class="profile-card-inner">
-                <div class="avatar avatar-aron">A</div>
-                <div class="profile-card-text">
-                  <div class="profile-name">Aron</div>
-                  <div class="profile-meta">Umsatz · Gewinn · Stats</div>
-                </div>
-                <span class="profile-enter">ENTER →</span>
-              </div>
-            </button>
-            <button
-              type="button"
-              class="profile-card profile-card--mehmet"
-              data-profile="Mehmet"
-              onclick="window.enterProfile('Mehmet')"
-            >
-              <span class="profile-card-glow"></span>
-              <div class="profile-card-inner">
-                <div class="avatar avatar-mehmet">M</div>
-                <div class="profile-card-text">
-                  <div class="profile-name">Mehmet</div>
-                  <div class="profile-meta">Umsatz · Gewinn · Stats</div>
-                </div>
-                <span class="profile-enter">ENTER →</span>
-              </div>
-            </button>
-          </div>
-        </section>
-
         <section id="dashboard" class="dashboard hidden">
           <section class="panel panel--compact active-profile-panel">
             <div class="active-profile-row">
@@ -245,6 +239,34 @@
       </footer>
     </div>
 
+    <script>
+      window.__pendingProfile = null;
+      window.pickProfile = function (name) {
+        var root = document.getElementById("appRoot");
+        var sel = document.getElementById("profile-select");
+        var dash = document.getElementById("dashboard");
+        if (!sel || !dash) return;
+        window.__pendingProfile = name;
+        root.classList.add("mode-dashboard");
+        sel.classList.add("hidden");
+        dash.classList.remove("hidden");
+        window.scrollTo(0, 0);
+        if (typeof window.onProfilePicked === "function") {
+          window.onProfilePicked(name);
+        }
+      };
+      document.addEventListener(
+        "click",
+        function (e) {
+          var btn = e.target.closest("[data-profile]");
+          if (!btn) return;
+          e.preventDefault();
+          e.stopPropagation();
+          window.pickProfile(btn.getAttribute("data-profile"));
+        },
+        true
+      );
+    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="config.js"></script>

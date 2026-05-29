@@ -284,26 +284,48 @@ function initCostInfo() {
   }
 }
 
+function getProfileSelectEl() {
+  return document.getElementById("profile-select");
+}
+
+function getDashboardEl() {
+  return document.getElementById("dashboard");
+}
+
 function showDashboardView() {
-  appRootEl?.classList.add("mode-dashboard");
-  profileSelectSection?.classList.add("hidden");
-  dashboardSection?.classList.remove("hidden");
+  const root = appRootEl || document.getElementById("appRoot");
+  const sel = getProfileSelectEl();
+  const dash = getDashboardEl();
+  root?.classList.add("mode-dashboard");
+  sel?.classList.add("hidden");
+  dash?.classList.remove("hidden");
   window.scrollTo(0, 0);
 }
 
 function showProfileSelectView() {
-  appRootEl?.classList.remove("mode-dashboard");
+  const root = appRootEl || document.getElementById("appRoot");
+  const sel = getProfileSelectEl();
+  const dash = getDashboardEl();
+  root?.classList.remove("mode-dashboard");
   state.activeProfile = null;
-  dashboardSection?.classList.add("hidden");
-  profileSelectSection?.classList.remove("hidden");
+  dash?.classList.add("hidden");
+  sel?.classList.remove("hidden");
   window.scrollTo(0, 0);
 }
 
 async function setActiveProfile(name) {
-  if (!name || !profileSelectSection || !dashboardSection) {
-    console.error("Profil-UI nicht gefunden");
+  bindDomRefs();
+
+  const sel = getProfileSelectEl();
+  const dash = getDashboardEl();
+
+  if (!name || !sel || !dash) {
+    alert("Seite bitte neu laden (Strg+F5).");
     return;
   }
+
+  profileSelectSection = sel;
+  dashboardSection = dash;
 
   state.activeProfile = name;
   showDashboardView();
@@ -650,30 +672,7 @@ function initCharts() {
 }
 
 function setupCursorGlow() {
-  const glow = document.getElementById("cursorGlow");
-  if (!glow || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return;
-  }
-
-  let x = 0;
-  let y = 0;
-  let targetX = 0;
-  let targetY = 0;
-
-  document.addEventListener("mousemove", (e) => {
-    targetX = e.clientX;
-    targetY = e.clientY;
-  });
-
-  function animate() {
-    x += (targetX - x) * 0.12;
-    y += (targetY - y) * 0.12;
-    glow.style.left = `${x}px`;
-    glow.style.top = `${y}px`;
-    requestAnimationFrame(animate);
-  }
-
-  animate();
+  /* deaktiviert – kann Klicks blockieren */
 }
 
 function updateCharts() {
@@ -740,37 +739,33 @@ function bindDomRefs() {
 }
 
 function setupEvents() {
-  if (profileSelectSection) {
-    profileSelectSection.addEventListener("click", (event) => {
-      const btn = event.target.closest("[data-profile]");
-      if (!btn) return;
-      event.preventDefault();
-      event.stopPropagation();
-      setActiveProfile(btn.getAttribute("data-profile"));
-    });
-  }
-
   changeProfileBtn?.addEventListener("click", resetToProfileSelection);
   saleForm?.addEventListener("submit", handleSaleSubmit);
   undoLastSaleBtn?.addEventListener("click", undoLastSale);
 }
 
 window.enterProfile = function (name) {
+  window.pickProfile(name);
+};
+
+window.onProfilePicked = function (name) {
   setActiveProfile(name);
 };
 
 function initApp() {
   bindDomRefs();
+  initCostInfo();
+  setupEvents();
+  initSupabase();
+
+  if (window.__pendingProfile) {
+    setActiveProfile(window.__pendingProfile);
+    window.__pendingProfile = null;
+  }
 
   if (!profileSelectSection || !dashboardSection) {
     console.error("Kritische DOM-Elemente fehlen (#profile-select / #dashboard)");
-    return;
   }
-
-  initCostInfo();
-  setupEvents();
-  setupCursorGlow();
-  initSupabase();
 }
 
 if (document.readyState === "loading") {
