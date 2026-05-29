@@ -1,3 +1,10 @@
+window.submitSale = function (event) {
+  if (event) event.preventDefault();
+  if (typeof handleSaleSubmit === "function") {
+    handleSaleSubmit(event);
+  }
+};
+
 const TOTAL_VAPES = 160;
 const TOTAL_COST = 980;
 const COST_PER_VAPE = TOTAL_COST / TOTAL_VAPES;
@@ -652,6 +659,11 @@ function chartBaseOptions(currencyY = false) {
 }
 
 function initCharts() {
+  if (typeof Chart === "undefined") {
+    console.warn("Chart.js nicht geladen – Diagramme übersprungen.");
+    return;
+  }
+
   const revenueCanvas = document.getElementById("revenueChart");
   const profitCanvas = document.getElementById("profitChart");
   const unitsCanvas = document.getElementById("unitsComparisonChart");
@@ -751,7 +763,7 @@ function setupCursorGlow() {
 }
 
 function updateCharts() {
-  if (!state.activeProfile || !revenueChart) return;
+  if (!state.activeProfile || !revenueChart || typeof Chart === "undefined") return;
   const profile = getProfile(state.activeProfile);
 
   const labels = profile.sales.map(
@@ -830,14 +842,6 @@ window.enterProfile = function (name) {
 
 window.onProfilePicked = function (name) {
   setActiveProfile(name);
-};
-
-window.__runSaleSubmit = function (event) {
-  handleSaleSubmit(event);
-};
-
-window.submitSale = function (event) {
-  handleSaleSubmit(event);
 };
 
 function initApp() {
