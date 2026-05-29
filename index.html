@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VAPE OPS — Aron & Mehmet</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Syne:wght@400;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="bg-layer" aria-hidden="true">
+      <div class="bg-grid"></div>
+      <div class="bg-glow bg-glow--lime"></div>
+      <div class="bg-glow bg-glow--cyan"></div>
+      <div class="bg-scanlines"></div>
+    </div>
+    <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+
+    <div class="app-root">
+      <header class="hero">
+        <div class="hero-badge">
+          <span class="pulse-dot"></span>
+          LIVE TRACKING
+        </div>
+        <h1 class="hero-title">
+          <span class="hero-title-line">VAPE</span>
+          <span class="hero-title-line hero-title-line--accent">OPS</span>
+        </h1>
+        <p class="hero-sub">Verkauf · Umsatz · Performance</p>
+        <div class="telemetry-bar">
+          <div class="telemetry-item">
+            <span class="telemetry-label">STOCK</span>
+            <span class="telemetry-value">160</span>
+          </div>
+          <div class="telemetry-divider"></div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">EINKAUF</span>
+            <span class="telemetry-value">980 €</span>
+          </div>
+          <div class="telemetry-divider"></div>
+          <div class="telemetry-item">
+            <span class="telemetry-label">COST / UNIT</span>
+            <span class="telemetry-value" id="costPerVape">—</span>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section id="profile-select" class="panel profile-select-panel">
+          <div class="panel-header">
+            <span class="panel-tag">01 // DRIVER SELECT</span>
+            <h2 class="panel-title">Wer fährt gerade?</h2>
+            <p class="panel-desc">Profil wählen, dann Verkäufe erfassen.</p>
+          </div>
+          <div class="profile-grid">
+            <button class="profile-card profile-card--aron" data-profile="Aron">
+              <span class="profile-card-glow"></span>
+              <div class="profile-card-inner">
+                <div class="avatar avatar-aron">A</div>
+                <div class="profile-card-text">
+                  <div class="profile-name">Aron</div>
+                  <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+                </div>
+                <span class="profile-enter">ENTER →</span>
+              </div>
+            </button>
+            <button class="profile-card profile-card--mehmet" data-profile="Mehmet">
+              <span class="profile-card-glow"></span>
+              <div class="profile-card-inner">
+                <div class="avatar avatar-mehmet">M</div>
+                <div class="profile-card-text">
+                  <div class="profile-name">Mehmet</div>
+                  <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+                </div>
+                <span class="profile-enter">ENTER →</span>
+              </div>
+            </button>
+          </div>
+        </section>
+
+        <section id="dashboard" class="dashboard hidden">
+          <section class="panel panel--compact active-profile-panel">
+            <div class="active-profile-row">
+              <div class="active-profile-info">
+                <div id="activeProfileAvatar" class="avatar avatar-lg">A</div>
+                <div>
+                  <span class="panel-tag">ACTIVE DRIVER</span>
+                  <div id="activeProfileName" class="active-name">Aron</div>
+                </div>
+              </div>
+              <button id="changeProfileBtn" class="ghost-button">
+                Profil wechseln
+              </button>
+            </div>
+          </section>
+
+          <section class="panel sale-entry-panel">
+            <div class="panel-header">
+              <span class="panel-tag">02 // SALE INPUT</span>
+              <h2 class="panel-title">Verkauf erfassen</h2>
+            </div>
+            <form id="saleForm" class="sale-form">
+              <div class="form-field">
+                <label for="buyerName">Käufer</label>
+                <input
+                  id="buyerName"
+                  type="text"
+                  required
+                  placeholder="Name eingeben"
+                  autocomplete="name"
+                />
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="salePrice">Preis / Stück (€)</label>
+                  <input
+                    id="salePrice"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    required
+                    placeholder="10"
+                  />
+                </div>
+                <div class="form-field form-field--narrow">
+                  <label for="saleQuantity">Menge</label>
+                  <input
+                    id="saleQuantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value="1"
+                    required
+                  />
+                </div>
+                <button type="submit" class="primary-button">
+                  <span>Verkauf buchen</span>
+                </button>
+              </div>
+            </form>
+            <p class="hint">
+              Einkaufspreis fix: <strong>6,13 €</strong> pro Vape (980 € ÷ 160)
+            </p>
+          </section>
+
+          <section class="panel sales-list-panel">
+            <div class="panel-header panel-header--row">
+              <div>
+                <span class="panel-tag">03 // SALES LOG</span>
+                <h2 class="panel-title">Verkaufte Vapes</h2>
+              </div>
+              <button
+                type="button"
+                id="undoLastSaleBtn"
+                class="ghost-button ghost-button--danger"
+                disabled
+              >
+                Letzten widerrufen
+              </button>
+            </div>
+            <div id="salesList" class="sales-list"></div>
+          </section>
+
+          <section class="panel stats-panel">
+            <div class="panel-header">
+              <span class="panel-tag">04 // LIVE DATA</span>
+              <h2 class="panel-title">
+                Performance — <span id="statsProfileName">Aron</span>
+              </h2>
+            </div>
+            <div class="stats-grid">
+              <div class="stat">
+                <div class="stat-label">Units</div>
+                <div id="statUnits" class="stat-value">0</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Umsatz</div>
+                <div id="statRevenue" class="stat-value">0,00 €</div>
+              </div>
+              <div class="stat">
+                <div class="stat-label">Kosten</div>
+                <div id="statCost" class="stat-value">0,00 €</div>
+              </div>
+              <div class="stat stat--highlight">
+                <div class="stat-label">Gewinn</div>
+                <div id="statProfit" class="stat-value positive">0,00 €</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel charts-panel">
+            <div class="panel-header">
+              <span class="panel-tag">05 // TELEMETRY</span>
+              <h2 class="panel-title">Verlauf</h2>
+            </div>
+            <div class="charts-grid">
+              <div class="chart-block">
+                <h3>Umsatz</h3>
+                <canvas id="revenueChart"></canvas>
+              </div>
+              <div class="chart-block">
+                <h3>Gewinn</h3>
+                <canvas id="profitChart"></canvas>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel comparison-panel">
+            <div class="panel-header">
+              <span class="panel-tag">06 // HEAD TO HEAD</span>
+              <h2 class="panel-title">Aron vs Mehmet</h2>
+            </div>
+            <div class="comparison-grid">
+              <div class="chart-block">
+                <h3>Verkaufte Units</h3>
+                <canvas id="unitsComparisonChart"></canvas>
+              </div>
+              <div class="chart-block">
+                <h3>Gesamtgewinn</h3>
+                <canvas id="profitComparisonChart"></canvas>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="site-footer">
+        <span>VAPE OPS</span>
+        <span class="footer-divider">|</span>
+        <span>160 UNITS · 980 €</span>
+      </footer>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
