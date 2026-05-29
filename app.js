@@ -42,6 +42,7 @@ let salesListEl;
 let undoLastSaleBtn;
 let syncStatusEl;
 let syncDotEl;
+let saleFeedbackEl;
 
 let revenueChart;
 let profitChart;
@@ -236,6 +237,35 @@ function setSyncStatus(text, mode = "ok") {
   }
 }
 
+function showSaleFeedback(message, isError = false) {
+  const el = saleFeedbackEl || document.getElementById("saleFeedback");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("error", isError);
+}
+
+function getActiveProfileName() {
+  return state.activeProfile || window.__activeProfile || window.__pendingProfile;
+}
+
+async function testSupabaseConnection() {
+  if (!useCloud || !supabase) {
+    setSyncStatus("LOKALER MODUS", "error");
+    return false;
+  }
+
+  const { error } = await supabase.from("sales").select("id").limit(1);
+
+  if (error) {
+    console.error("Supabase Test:", error);
+    setSyncStatus("DB: " + error.message.slice(0, 28), "error");
+    return false;
+  }
+
+  setSyncStatus("CLOUD VERBUNDEN", "ok");
+  return true;
+}
+
 function setLoading(loading) {
   state.loading = loading;
   if (saleForm) {
@@ -328,6 +358,7 @@ async function setActiveProfile(name) {
   dashboardSection = dash;
 
   state.activeProfile = name;
+  window.__activeProfile = name;
   showDashboardView();
 
   if (activeProfileNameEl) activeProfileNameEl.textContent = name;
@@ -368,71 +399,117 @@ function resetToProfileSelection() {
   showProfileSelectView();
 }
 
-async function handleSaleSubmit(event) {
-  event.preventDefault();
-  if (!state.activeProfile || state.loading) return;
+function readSaleFormValues() {
+  const buyerEl = document.getElementById("buyerName");
+  const priceEl = document.getElementById("salePrice");
+  const qtyEl = document.getElementById("saleQuantity");
 
-  const buyerName = buyerNameInput.value.trim();
-  const price = parseFloat(salePriceInput.value.replace(",", "."));
-  const qty = parseInt(saleQuantityInput.value, 10);
-
-  if (!buyerName) {
-    alert("Bitte den Namen des Käufers eingeben.");
-    buyerNameInput.focus();
-    return;
+  if (!buyerEl || !priceEl || !qtyEl) {
+    return { error: "Formular nicht gefunden. Bitte Seite neu laden (Strg+F5)." };
   }
 
+  const buyerName = buyerEl.value.trim();
+  const price = parseFloat(String(priceEl.value).replace(",", "."));
+  const qty = parseInt(qtyEl.value, 10);
+
+  if (!buyerName) {
+    return { error: "Bitte Käufername eingeben.", focus: buyerEl };
+  }
   if (isNaN(price) || price <= 0 || isNaN(qty) || qty <= 0) {
-    alert("Bitte gültigen Verkaufspreis und Menge eingeben.");
-    return;
+    return { error: "Bitte gültigen Preis und Menge eingeben.", focus: priceEl };
   }
 
   const revenue = price * qty;
   const cost = COST_PER_VAPE * qty;
   const profit = revenue - cost;
 
-  setLoading(true);
+  return { buyerName, price, qty, revenue, cost, profit, buyerEl, priceEl, qtyEl };
+}
 
-  if (useCloud && supabase) {
-    const { error } = await supabase.from("sales").insert({
-      seller: state.activeProfile,
-      buyer_name: buyerName,
-      price,
-      qty,
-      revenue,
-      cost,
-      profit,
-    });
+function saveSaleLocally(profileName, saleData) {
+  const sale = {
+    id: createSaleId(),
+    buyerName: saleData.buyerName,
+    price: saleData.price,
+    qty: saleData.qty,
+    revenue: saleData.revenue,
+    cost: saleData.cost,
+    profit: saleData.profit,
+    seller: profileName,
+    timestamp: new Date(),
+  };
+  getProfile(profileName).sales.push(sale);
+  recalculateTotals(getProfile(profileName));
+  saveToLocalStorage();
+  updateUI();
+  return sale;
+}
 
-    if (error) {
-      console.error(error);
-      alert("Verkauf konnte nicht gespeichert werden: " + error.message);
-      setLoading(false);
-      return;
-    }
+async function handleSaleSubmit(event) {
+  if (event) event.preventDefault();
+  bindDomRefs();
 
-    await loadAllSales({ silent: true });
-  } else {
-    const sale = {
-      id: createSaleId(),
-      buyerName,
-      price,
-      qty,
-      revenue,
-      cost,
-      profit,
-      seller: state.activeProfile,
-      timestamp: new Date(),
-    };
-    getProfile(state.activeProfile).sales.push(sale);
-    recalculateTotals(getProfile(state.activeProfile));
-    saveToLocalStorage();
-    updateUI();
-    setLoading(false);
+  const profileName = getActiveProfileName();
+  if (!profileName) {
+    alert("Bitte zuerst Aron oder Mehmet wählen.");
+    return;
+  }
+  if (state.loading) return;
+
+  state.activeProfile = profileName;
+  window.__activeProfile = profileName;
+
+  const form = readSaleFormValues();
+  if (form.error) {
+    alert(form.error);
+    form.focus?.focus();
+    return;
   }
 
-  saleForm.reset();
-  saleQuantityInput.value = "1";
+  setLoading(true);
+  showSaleFeedback("Speichere…");
+
+  try {
+    if (useCloud && supabase) {
+      const { error } = await supabase.from("sales").insert({
+        seller: profileName,
+        buyer_name: form.buyerName,
+        price: form.price,
+        qty: form.qty,
+        revenue: form.revenue,
+        cost: form.cost,
+        profit: form.profit,
+      });
+
+      if (error) {
+        console.error(error);
+        saveSaleLocally(profileName, form);
+        showSaleFeedback(
+          "Cloud-Fehler – lokal gespeichert: " + error.message,
+          true
+        );
+        setSyncStatus("CLOUD FEHLER", "error");
+      } else {
+        await loadAllSales({ silent: true });
+        showSaleFeedback("Verkauf gespeichert (Cloud)");
+        setSyncStatus("CLOUD VERBUNDEN", "ok");
+      }
+    } else {
+      saveSaleLocally(profileName, form);
+      showSaleFeedback("Verkauf gespeichert (lokal)");
+    }
+
+    const formEl = document.getElementById("saleForm");
+    formEl?.reset();
+    const qtyInput = document.getElementById("saleQuantity");
+    if (qtyInput) qtyInput.value = "1";
+  } catch (err) {
+    console.error(err);
+    alert("Unerwarteter Fehler: " + err.message);
+    showSaleFeedback("Fehler beim Speichern", true);
+  } finally {
+    setLoading(false);
+  }
 }
 
 async function deleteSale(saleId) {
@@ -736,6 +813,7 @@ function bindDomRefs() {
   undoLastSaleBtn = document.getElementById("undoLastSaleBtn");
   syncStatusEl = document.getElementById("syncStatus");
   syncDotEl = document.getElementById("syncDot");
+  saleFeedbackEl = document.getElementById("saleFeedback");
 }
 
 function setupEvents() {
@@ -752,11 +830,16 @@ window.onProfilePicked = function (name) {
   setActiveProfile(name);
 };
 
+window.submitSale = function (event) {
+  handleSaleSubmit(event);
+};
+
 function initApp() {
   bindDomRefs();
   initCostInfo();
   setupEvents();
   initSupabase();
+  testSupabaseConnection();
 
   if (window.__pendingProfile) {
     setActiveProfile(window.__pendingProfile);

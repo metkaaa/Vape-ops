@@ -686,6 +686,22 @@ input:focus {
   color: var(--lime);
 }
 
+.sale-feedback {
+  margin: 12px 0 0;
+  min-height: 1.2em;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--lime);
+}
+
+.sale-feedback.error {
+  color: #ff6b6b;
+}
+
+.sale-feedback:empty {
+  display: none;
+}
+
 /* —— Sales list —— */
 .sales-list {
   display: flex;

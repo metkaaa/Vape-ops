@@ -146,6 +146,7 @@
                 </button>
               </div>
             </form>
+            <p id="saleFeedback" class="sale-feedback" aria-live="polite"></p>
             <p class="hint">
               Einkaufspreis fix: <strong>6,13 €</strong> pro Vape (980 € ÷ 160)
             </p>
@@ -241,12 +242,14 @@
 
     <script>
       window.__pendingProfile = null;
+      window.__activeProfile = null;
       window.pickProfile = function (name) {
         var root = document.getElementById("appRoot");
         var sel = document.getElementById("profile-select");
         var dash = document.getElementById("dashboard");
         if (!sel || !dash) return;
         window.__pendingProfile = name;
+        window.__activeProfile = name;
         root.classList.add("mode-dashboard");
         sel.classList.add("hidden");
         dash.classList.remove("hidden");
@@ -263,6 +266,18 @@
           e.preventDefault();
           e.stopPropagation();
           window.pickProfile(btn.getAttribute("data-profile"));
+        },
+        true
+      );
+      document.addEventListener(
+        "submit",
+        function (e) {
+          if (e.target && e.target.id === "saleForm") {
+            e.preventDefault();
+            if (typeof window.submitSale === "function") {
+              window.submitSale(e);
+            }
+          }
         },
         true
       );
