@@ -348,6 +348,11 @@ main {
 }
 
 /* —— Profile cards —— */
+.profile-select-panel {
+  position: relative;
+  z-index: 3;
+}
+
 .profile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -356,6 +361,7 @@ main {
 
 .profile-card {
   position: relative;
+  z-index: 1;
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0;
@@ -364,6 +370,8 @@ main {
   cursor: pointer;
   text-align: left;
   overflow: hidden;
+  font: inherit;
+  width: 100%;
   transition:
     border-color 0.25s,
     transform 0.25s,

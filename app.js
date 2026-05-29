@@ -19,6 +19,8 @@ const state = {
 };
 
 let supabase = null;
+let useCloud = false;
+const LOCAL_STORAGE_KEY = "vape_ops_sales";
 
 const costPerVapeEl = document.getElementById("costPerVape");
 const profileSelectSection = document.getElementById("profile-select");
@@ -105,6 +107,14 @@ function mapRowFromDb(row) {
   };
 }
 
+function createSaleId() {
+  return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function isValidAnonKey(key) {
+  return typeof key === "string" && key.startsWith("eyJ") && !key.includes("sb_secret");
+}
+
 function isSupabaseConfigured() {
   const cfg = window.SUPABASE_CONFIG;
   return (
@@ -112,36 +122,109 @@ function isSupabaseConfigured() {
     cfg.url &&
     cfg.anonKey &&
     !cfg.url.includes("DEIN-PROJEKT") &&
-    !cfg.anonKey.includes("DEIN-ANON")
+    !cfg.anonKey.includes("DEIN-ANON") &&
+    isValidAnonKey(cfg.anonKey)
   );
 }
 
-function initSupabase() {
-  if (!isSupabaseConfigured()) {
-    setSyncStatus("SUPABASE FEHLT", "error");
-    return false;
+function applySalesToState(rows) {
+  state.profiles.Aron.sales = [];
+  state.profiles.Mehmet.sales = [];
+
+  for (const row of rows) {
+    const sale = row.seller ? row : mapRowFromDb(row);
+    if (state.profiles[sale.seller]) {
+      state.profiles[sale.seller].sales.push(sale);
+    }
   }
 
-  supabase = window.supabase.createClient(
-    window.SUPABASE_CONFIG.url,
-    window.SUPABASE_CONFIG.anonKey
-  );
+  recalculateAllTotals();
+}
 
-  supabase
-    .channel("sales-live")
-    .on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "sales" },
-      () => {
-        if (state.activeProfile) {
-          loadAllSales({ silent: true });
-        }
-      }
-    )
-    .subscribe();
+function loadFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+    if (!raw) {
+      applySalesToState([]);
+      return;
+    }
+    const parsed = JSON.parse(raw);
+    const sales = parsed.map((s) => ({
+      ...s,
+      timestamp: new Date(s.timestamp),
+    }));
+    applySalesToState(sales);
+  } catch (e) {
+    console.error(e);
+    applySalesToState([]);
+  }
+}
 
-  setSyncStatus("CLOUD VERBUNDEN", "ok");
-  return true;
+function saveToLocalStorage() {
+  const all = [
+    ...state.profiles.Aron.sales,
+    ...state.profiles.Mehmet.sales,
+  ];
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
+}
+
+function initSupabase() {
+  try {
+    if (!window.SUPABASE_CONFIG) {
+      setSyncStatus("LOKALER MODUS", "error");
+      return false;
+    }
+
+    if (window.SUPABASE_CONFIG.anonKey?.includes("sb_secret")) {
+      console.warn("Secret Key erkannt – bitte anon public key in config.js nutzen.");
+      setSyncStatus("FALSCHER API KEY", "error");
+      return false;
+    }
+
+    if (!isSupabaseConfigured()) {
+      setSyncStatus("LOKALER MODUS", "error");
+      return false;
+    }
+
+    if (!window.supabase?.createClient) {
+      console.error("Supabase-Bibliothek nicht geladen.");
+      setSyncStatus("LIB FEHLER", "error");
+      return false;
+    }
+
+    supabase = window.supabase.createClient(
+      window.SUPABASE_CONFIG.url,
+      window.SUPABASE_CONFIG.anonKey
+    );
+
+    useCloud = true;
+
+    try {
+      supabase
+        .channel("sales-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "sales" },
+          () => {
+            if (state.activeProfile) {
+              loadAllSales({ silent: true });
+            }
+          }
+        )
+        .subscribe();
+    } catch (channelError) {
+      console.warn("Realtime nicht verfügbar:", channelError);
+    }
+
+    setSyncStatus("CLOUD VERBUNDEN", "ok");
+    return true;
+  } catch (e) {
+    console.error(e);
+    supabase = null;
+    useCloud = false;
+    setSyncStatus("INIT FEHLER", "error");
+    return false;
+  }
 }
 
 function setSyncStatus(text, mode = "ok") {
@@ -167,34 +250,26 @@ function setLoading(loading) {
 }
 
 async function loadAllSales({ silent = false } = {}) {
-  if (!supabase) return;
-
   if (!silent) setLoading(true);
 
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .order("created_at", { ascending: true });
+  if (useCloud && supabase) {
+    const { data, error } = await supabase
+      .from("sales")
+      .select("*")
+      .order("created_at", { ascending: true });
 
-  if (error) {
-    console.error(error);
-    alert("Daten konnten nicht geladen werden: " + error.message);
-    setSyncStatus("LADEFEHler", "error");
-    setLoading(false);
-    return;
-  }
-
-  state.profiles.Aron.sales = [];
-  state.profiles.Mehmet.sales = [];
-
-  for (const row of data) {
-    const sale = mapRowFromDb(row);
-    if (state.profiles[sale.seller]) {
-      state.profiles[sale.seller].sales.push(sale);
+    if (error) {
+      console.error(error);
+      setSyncStatus("CLOUD FEHLER", "error");
+      loadFromLocalStorage();
+    } else {
+      applySalesToState(data.map(mapRowFromDb));
+      setSyncStatus("CLOUD VERBUNDEN", "ok");
     }
+  } else {
+    loadFromLocalStorage();
   }
 
-  recalculateAllTotals();
   setLoading(false);
 
   if (state.activeProfile) {
@@ -209,13 +284,6 @@ function initCostInfo() {
 }
 
 async function setActiveProfile(name) {
-  if (!supabase) {
-    alert(
-      "Supabase ist nicht konfiguriert.\n\nTrage url und anonKey in config.js ein."
-    );
-    return;
-  }
-
   state.activeProfile = name;
 
   profileSelectSection.classList.add("hidden");
@@ -246,7 +314,7 @@ function resetToProfileSelection() {
 
 async function handleSaleSubmit(event) {
   event.preventDefault();
-  if (!state.activeProfile || !supabase || state.loading) return;
+  if (!state.activeProfile || state.loading) return;
 
   const buyerName = buyerNameInput.value.trim();
   const price = parseFloat(salePriceInput.value.replace(",", "."));
@@ -269,31 +337,50 @@ async function handleSaleSubmit(event) {
 
   setLoading(true);
 
-  const { error } = await supabase.from("sales").insert({
-    seller: state.activeProfile,
-    buyer_name: buyerName,
-    price,
-    qty,
-    revenue,
-    cost,
-    profit,
-  });
+  if (useCloud && supabase) {
+    const { error } = await supabase.from("sales").insert({
+      seller: state.activeProfile,
+      buyer_name: buyerName,
+      price,
+      qty,
+      revenue,
+      cost,
+      profit,
+    });
 
-  setLoading(false);
+    if (error) {
+      console.error(error);
+      alert("Verkauf konnte nicht gespeichert werden: " + error.message);
+      setLoading(false);
+      return;
+    }
 
-  if (error) {
-    console.error(error);
-    alert("Verkauf konnte nicht gespeichert werden: " + error.message);
-    return;
+    await loadAllSales({ silent: true });
+  } else {
+    const sale = {
+      id: createSaleId(),
+      buyerName,
+      price,
+      qty,
+      revenue,
+      cost,
+      profit,
+      seller: state.activeProfile,
+      timestamp: new Date(),
+    };
+    getProfile(state.activeProfile).sales.push(sale);
+    recalculateTotals(getProfile(state.activeProfile));
+    saveToLocalStorage();
+    updateUI();
+    setLoading(false);
   }
 
   saleForm.reset();
   saleQuantityInput.value = "1";
-  await loadAllSales({ silent: true });
 }
 
 async function deleteSale(saleId) {
-  if (!state.activeProfile || !supabase || state.loading) return;
+  if (!state.activeProfile || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
   const sale = profile.sales.find((s) => s.id === saleId);
@@ -306,21 +393,28 @@ async function deleteSale(saleId) {
 
   setLoading(true);
 
-  const { error } = await supabase.from("sales").delete().eq("id", saleId);
+  if (useCloud && supabase) {
+    const { error } = await supabase.from("sales").delete().eq("id", saleId);
 
-  setLoading(false);
+    if (error) {
+      console.error(error);
+      alert("Löschen fehlgeschlagen: " + error.message);
+      setLoading(false);
+      return;
+    }
 
-  if (error) {
-    console.error(error);
-    alert("Löschen fehlgeschlagen: " + error.message);
-    return;
+    await loadAllSales({ silent: true });
+  } else {
+    profile.sales = profile.sales.filter((s) => s.id !== saleId);
+    recalculateTotals(profile);
+    saveToLocalStorage();
+    updateUI();
+    setLoading(false);
   }
-
-  await loadAllSales({ silent: true });
 }
 
 async function undoLastSale() {
-  if (!state.activeProfile || !supabase || state.loading) return;
+  if (!state.activeProfile || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
   if (profile.sales.length === 0) return;
