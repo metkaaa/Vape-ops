@@ -755,6 +755,10 @@ function setupEvents() {
   undoLastSaleBtn?.addEventListener("click", undoLastSale);
 }
 
+window.enterProfile = function (name) {
+  setActiveProfile(name);
+};
+
 function initApp() {
   bindDomRefs();
 

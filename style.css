@@ -133,8 +133,21 @@ body:hover .cursor-glow {
 
 /* —— Hero —— */
 .hero {
-  margin-bottom: 48px;
+  margin-bottom: 20px;
   animation: fade-up 0.8s ease-out;
+}
+
+.app-root:not(.mode-dashboard) .hero-title-line {
+  font-size: clamp(2.8rem, 12vw, 4.5rem);
+}
+
+.app-root:not(.mode-dashboard) .hero-sub {
+  display: none;
+}
+
+.main-content {
+  position: relative;
+  z-index: 5;
 }
 
 .hero-badge {
@@ -374,7 +387,8 @@ main {
 
 .profile-card {
   position: relative;
-  z-index: 1;
+  z-index: 10;
+  pointer-events: auto;
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0;

@@ -11,7 +11,6 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <div class="bg-layer" aria-hidden="true">
@@ -32,7 +31,6 @@
           <span class="hero-title-line">VAPE</span>
           <span class="hero-title-line hero-title-line--accent">OPS</span>
         </h1>
-        <p class="hero-sub">Verkauf · Umsatz · Performance</p>
         <div class="telemetry-bar">
           <div class="telemetry-item">
             <span class="telemetry-label">STOCK</span>
@@ -51,15 +49,20 @@
         </div>
       </header>
 
-      <main>
+      <main class="main-content">
         <section id="profile-select" class="panel profile-select-panel">
           <div class="panel-header">
             <span class="panel-tag">01 // DRIVER SELECT</span>
             <h2 class="panel-title">Wer fährt gerade?</h2>
-            <p class="panel-desc">Profil wählen, dann Verkäufe erfassen.</p>
+            <p class="panel-desc">Tippe auf dein Profil:</p>
           </div>
           <div class="profile-grid">
-            <button type="button" class="profile-card profile-card--aron" data-profile="Aron">
+            <button
+              type="button"
+              class="profile-card profile-card--aron"
+              data-profile="Aron"
+              onclick="window.enterProfile('Aron')"
+            >
               <span class="profile-card-glow"></span>
               <div class="profile-card-inner">
                 <div class="avatar avatar-aron">A</div>
@@ -70,7 +73,12 @@
                 <span class="profile-enter">ENTER →</span>
               </div>
             </button>
-            <button type="button" class="profile-card profile-card--mehmet" data-profile="Mehmet">
+            <button
+              type="button"
+              class="profile-card profile-card--mehmet"
+              data-profile="Mehmet"
+              onclick="window.enterProfile('Mehmet')"
+            >
               <span class="profile-card-glow"></span>
               <div class="profile-card-inner">
                 <div class="avatar avatar-mehmet">M</div>
@@ -94,7 +102,7 @@
                   <div id="activeProfileName" class="active-name">Aron</div>
                 </div>
               </div>
-              <button id="changeProfileBtn" class="ghost-button">
+              <button type="button" id="changeProfileBtn" class="ghost-button">
                 Profil wechseln
               </button>
             </div>
@@ -237,6 +245,7 @@
       </footer>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="config.js"></script>
     <script src="app.js"></script>
