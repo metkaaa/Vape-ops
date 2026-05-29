@@ -22,25 +22,26 @@ let supabase = null;
 let useCloud = false;
 const LOCAL_STORAGE_KEY = "vape_ops_sales";
 
-const costPerVapeEl = document.getElementById("costPerVape");
-const profileSelectSection = document.getElementById("profile-select");
-const dashboardSection = document.getElementById("dashboard");
-const activeProfileNameEl = document.getElementById("activeProfileName");
-const activeProfileAvatarEl = document.getElementById("activeProfileAvatar");
-const changeProfileBtn = document.getElementById("changeProfileBtn");
-const saleForm = document.getElementById("saleForm");
-const buyerNameInput = document.getElementById("buyerName");
-const salePriceInput = document.getElementById("salePrice");
-const saleQuantityInput = document.getElementById("saleQuantity");
-const statsProfileNameEl = document.getElementById("statsProfileName");
-const statUnitsEl = document.getElementById("statUnits");
-const statRevenueEl = document.getElementById("statRevenue");
-const statCostEl = document.getElementById("statCost");
-const statProfitEl = document.getElementById("statProfit");
-const salesListEl = document.getElementById("salesList");
-const undoLastSaleBtn = document.getElementById("undoLastSaleBtn");
-const syncStatusEl = document.getElementById("syncStatus");
-const syncDotEl = document.getElementById("syncDot");
+let appRootEl;
+let costPerVapeEl;
+let profileSelectSection;
+let dashboardSection;
+let activeProfileNameEl;
+let activeProfileAvatarEl;
+let changeProfileBtn;
+let saleForm;
+let buyerNameInput;
+let salePriceInput;
+let saleQuantityInput;
+let statsProfileNameEl;
+let statUnitsEl;
+let statRevenueEl;
+let statCostEl;
+let statProfitEl;
+let salesListEl;
+let undoLastSaleBtn;
+let syncStatusEl;
+let syncDotEl;
 
 let revenueChart;
 let profitChart;
@@ -283,33 +284,66 @@ function initCostInfo() {
   }
 }
 
+function showDashboardView() {
+  appRootEl?.classList.add("mode-dashboard");
+  profileSelectSection?.classList.add("hidden");
+  dashboardSection?.classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+
+function showProfileSelectView() {
+  appRootEl?.classList.remove("mode-dashboard");
+  state.activeProfile = null;
+  dashboardSection?.classList.add("hidden");
+  profileSelectSection?.classList.remove("hidden");
+  window.scrollTo(0, 0);
+}
+
 async function setActiveProfile(name) {
-  state.activeProfile = name;
-
-  profileSelectSection.classList.add("hidden");
-  dashboardSection.classList.remove("hidden");
-
-  activeProfileNameEl.textContent = name;
-  activeProfileAvatarEl.textContent = name[0] || "?";
-  activeProfileAvatarEl.className = "avatar avatar-lg";
-  activeProfileAvatarEl.classList.add(
-    name === "Aron" ? "avatar-aron" : "avatar-mehmet"
-  );
-
-  statsProfileNameEl.textContent = name;
-
-  if (!revenueChart) {
-    initCharts();
+  if (!name || !profileSelectSection || !dashboardSection) {
+    console.error("Profil-UI nicht gefunden");
+    return;
   }
 
-  await loadAllSales();
+  state.activeProfile = name;
+  showDashboardView();
+
+  if (activeProfileNameEl) activeProfileNameEl.textContent = name;
+  if (activeProfileAvatarEl) {
+    activeProfileAvatarEl.textContent = name[0] || "?";
+    activeProfileAvatarEl.className = "avatar avatar-lg";
+    activeProfileAvatarEl.classList.add(
+      name === "Aron" ? "avatar-aron" : "avatar-mehmet"
+    );
+  }
+  if (statsProfileNameEl) statsProfileNameEl.textContent = name;
+
+  if (!revenueChart) {
+    try {
+      initCharts();
+    } catch (chartError) {
+      console.error("Charts konnten nicht geladen werden:", chartError);
+    }
+  }
+
+  try {
+    await Promise.race([
+      loadAllSales(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Zeitüberschreitung")), 12000)
+      ),
+    ]);
+  } catch (loadError) {
+    console.error(loadError);
+    loadFromLocalStorage();
+    setSyncStatus("OFFLINE MODUS", "error");
+  }
+
   updateUI();
 }
 
 function resetToProfileSelection() {
-  state.activeProfile = null;
-  dashboardSection.classList.add("hidden");
-  profileSelectSection.classList.remove("hidden");
+  showProfileSelectView();
 }
 
 async function handleSaleSubmit(event) {
@@ -521,12 +555,19 @@ function chartBaseOptions(currencyY = false) {
 }
 
 function initCharts() {
-  const revenueCtx = document.getElementById("revenueChart").getContext("2d");
-  const profitCtx = document.getElementById("profitChart").getContext("2d");
-  const unitsComparisonCtx =
-    document.getElementById("unitsComparisonChart").getContext("2d");
-  const profitComparisonCtx =
-    document.getElementById("profitComparisonChart").getContext("2d");
+  const revenueCanvas = document.getElementById("revenueChart");
+  const profitCanvas = document.getElementById("profitChart");
+  const unitsCanvas = document.getElementById("unitsComparisonChart");
+  const profitCmpCanvas = document.getElementById("profitComparisonChart");
+
+  if (!revenueCanvas || !profitCanvas || !unitsCanvas || !profitCmpCanvas) {
+    throw new Error("Chart-Elemente fehlen im HTML");
+  }
+
+  const revenueCtx = revenueCanvas.getContext("2d");
+  const profitCtx = profitCanvas.getContext("2d");
+  const unitsComparisonCtx = unitsCanvas.getContext("2d");
+  const profitComparisonCtx = profitCmpCanvas.getContext("2d");
 
   revenueChart = new Chart(revenueCtx, {
     type: "line",
@@ -675,26 +716,61 @@ function updateUI() {
   updateCharts();
 }
 
-function setupProfileCards() {
-  document.querySelectorAll(".profile-card").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setActiveProfile(btn.getAttribute("data-profile"));
-    });
-  });
+function bindDomRefs() {
+  appRootEl = document.getElementById("appRoot");
+  costPerVapeEl = document.getElementById("costPerVape");
+  profileSelectSection = document.getElementById("profile-select");
+  dashboardSection = document.getElementById("dashboard");
+  activeProfileNameEl = document.getElementById("activeProfileName");
+  activeProfileAvatarEl = document.getElementById("activeProfileAvatar");
+  changeProfileBtn = document.getElementById("changeProfileBtn");
+  saleForm = document.getElementById("saleForm");
+  buyerNameInput = document.getElementById("buyerName");
+  salePriceInput = document.getElementById("salePrice");
+  saleQuantityInput = document.getElementById("saleQuantity");
+  statsProfileNameEl = document.getElementById("statsProfileName");
+  statUnitsEl = document.getElementById("statUnits");
+  statRevenueEl = document.getElementById("statRevenue");
+  statCostEl = document.getElementById("statCost");
+  statProfitEl = document.getElementById("statProfit");
+  salesListEl = document.getElementById("salesList");
+  undoLastSaleBtn = document.getElementById("undoLastSaleBtn");
+  syncStatusEl = document.getElementById("syncStatus");
+  syncDotEl = document.getElementById("syncDot");
 }
 
 function setupEvents() {
-  setupProfileCards();
-  changeProfileBtn.addEventListener("click", resetToProfileSelection);
-  saleForm.addEventListener("submit", handleSaleSubmit);
-  if (undoLastSaleBtn) {
-    undoLastSaleBtn.addEventListener("click", undoLastSale);
+  if (profileSelectSection) {
+    profileSelectSection.addEventListener("click", (event) => {
+      const btn = event.target.closest("[data-profile]");
+      if (!btn) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setActiveProfile(btn.getAttribute("data-profile"));
+    });
   }
+
+  changeProfileBtn?.addEventListener("click", resetToProfileSelection);
+  saleForm?.addEventListener("submit", handleSaleSubmit);
+  undoLastSaleBtn?.addEventListener("click", undoLastSale);
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+function initApp() {
+  bindDomRefs();
+
+  if (!profileSelectSection || !dashboardSection) {
+    console.error("Kritische DOM-Elemente fehlen (#profile-select / #dashboard)");
+    return;
+  }
+
   initCostInfo();
   setupEvents();
   setupCursorGlow();
   initSupabase();
-});
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initApp);
+} else {
+  initApp();
+}

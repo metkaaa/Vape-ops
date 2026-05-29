@@ -347,6 +347,19 @@ main {
   display: none !important;
 }
 
+/* Nach Profilwahl: Hero ausblenden, Dashboard sofort sichtbar */
+.app-root.mode-dashboard .hero {
+  display: none;
+}
+
+.app-root.mode-dashboard .site-footer {
+  margin-top: 24px;
+}
+
+.app-root.mode-dashboard main {
+  margin-top: 0;
+}
+
 /* —— Profile cards —— */
 .profile-select-panel {
   position: relative;
