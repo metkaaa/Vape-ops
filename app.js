@@ -18,7 +18,7 @@ const state = {
   },
 };
 
-let supabase = null;
+let supabaseClient = null;
 let useCloud = false;
 const LOCAL_STORAGE_KEY = "vape_ops_sales";
 
@@ -194,7 +194,7 @@ function initSupabase() {
       return false;
     }
 
-    supabase = window.supabase.createClient(
+    supabaseClient = window.supabase.createClient(
       window.SUPABASE_CONFIG.url,
       window.SUPABASE_CONFIG.anonKey
     );
@@ -202,7 +202,7 @@ function initSupabase() {
     useCloud = true;
 
     try {
-      supabase
+      supabaseClient
         .channel("sales-live")
         .on(
           "postgres_changes",
@@ -222,7 +222,7 @@ function initSupabase() {
     return true;
   } catch (e) {
     console.error(e);
-    supabase = null;
+    supabaseClient = null;
     useCloud = false;
     setSyncStatus("INIT FEHLER", "error");
     return false;
@@ -249,12 +249,12 @@ function getActiveProfileName() {
 }
 
 async function testSupabaseConnection() {
-  if (!useCloud || !supabase) {
+  if (!useCloud || !supabaseClient) {
     setSyncStatus("LOKALER MODUS", "error");
     return false;
   }
 
-  const { error } = await supabase.from("sales").select("id").limit(1);
+  const { error } = await supabaseClient.from("sales").select("id").limit(1);
 
   if (error) {
     console.error("Supabase Test:", error);
@@ -270,7 +270,7 @@ function setLoading(loading) {
   state.loading = loading;
   if (loading) {
     setSyncStatus("SYNC…", "loading");
-  } else if (useCloud && supabase) {
+  } else if (useCloud && supabaseClient) {
     setSyncStatus("CLOUD VERBUNDEN", "ok");
   } else if (isSupabaseConfigured()) {
     setSyncStatus("CLOUD VERBUNDEN", "ok");
@@ -280,8 +280,8 @@ function setLoading(loading) {
 async function loadAllSales({ silent = false } = {}) {
   if (!silent) setLoading(true);
 
-  if (useCloud && supabase) {
-    const { data, error } = await supabase
+  if (useCloud && supabaseClient) {
+    const { data, error } = await supabaseClient
       .from("sales")
       .select("*")
       .order("created_at", { ascending: true });
@@ -468,8 +468,8 @@ async function handleSaleSubmit(event) {
   showSaleFeedback("Speichere…");
 
   try {
-    if (useCloud && supabase) {
-      const { error } = await supabase.from("sales").insert({
+    if (useCloud && supabaseClient) {
+      const { error } = await supabaseClient.from("sales").insert({
         seller: profileName,
         buyer_name: form.buyerName,
         price: form.price,
@@ -524,8 +524,8 @@ async function deleteSale(saleId) {
 
   setLoading(true);
 
-  if (useCloud && supabase) {
-    const { error } = await supabase.from("sales").delete().eq("id", saleId);
+  if (useCloud && supabaseClient) {
+    const { error } = await supabaseClient.from("sales").delete().eq("id", saleId);
 
     if (error) {
       console.error(error);
