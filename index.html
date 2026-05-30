@@ -2,7 +2,12 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="theme-color" content="#050508" />
     <title>VAPE OPS — Aron & Mehmet</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -20,10 +25,28 @@
       <div class="bg-scanlines"></div>
     </div>
     <div class="app-root" id="appRoot">
+      <div class="telemetry-bar telemetry-bar--top" id="stockBanner">
+        <div class="telemetry-item">
+          <span class="telemetry-label">STOCK</span>
+          <span class="telemetry-value" id="stockRemaining">160</span>
+          <span class="telemetry-sub">von 160 übrig</span>
+        </div>
+        <div class="telemetry-divider" aria-hidden="true"></div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">EINKAUF</span>
+          <span class="telemetry-value">980 €</span>
+        </div>
+        <div class="telemetry-divider" aria-hidden="true"></div>
+        <div class="telemetry-item">
+          <span class="telemetry-label">COST / UNIT</span>
+          <span class="telemetry-value" id="costPerVape">6,13 €</span>
+        </div>
+      </div>
+
       <section id="profile-select" class="panel profile-select-panel landing-profiles">
         <div class="panel-header">
-          <span class="panel-tag">01 // DRIVER SELECT</span>
-          <h2 class="panel-title">Wer fährt gerade?</h2>
+          <span class="panel-tag">01 // VERKÄUFER</span>
+          <h2 class="panel-title">Wer verkauft gerade?</h2>
           <p class="panel-desc">Tippe auf dein Profil:</p>
         </div>
         <div class="profile-grid">
@@ -67,22 +90,6 @@
           <span class="hero-title-line">VAPE</span>
           <span class="hero-title-line hero-title-line--accent">OPS</span>
         </h1>
-        <div class="telemetry-bar">
-          <div class="telemetry-item">
-            <span class="telemetry-label">STOCK</span>
-            <span class="telemetry-value">160</span>
-          </div>
-          <div class="telemetry-divider"></div>
-          <div class="telemetry-item">
-            <span class="telemetry-label">EINKAUF</span>
-            <span class="telemetry-value">980 €</span>
-          </div>
-          <div class="telemetry-divider"></div>
-          <div class="telemetry-item">
-            <span class="telemetry-label">COST / UNIT</span>
-            <span class="telemetry-value" id="costPerVape">—</span>
-          </div>
-        </div>
       </header>
 
       <main class="main-content">
@@ -92,7 +99,7 @@
               <div class="active-profile-info">
                 <div id="activeProfileAvatar" class="avatar avatar-lg">A</div>
                 <div>
-                  <span class="panel-tag">ACTIVE DRIVER</span>
+                  <span class="panel-tag">AKTIV</span>
                   <div id="activeProfileName" class="active-name">Aron</div>
                 </div>
               </div>
@@ -245,6 +252,12 @@
     </div>
 
     <script>
+      (function () {
+        var cost = document.getElementById("costPerVape");
+        var stock = document.getElementById("stockRemaining");
+        if (cost) cost.textContent = "6,13 €";
+        if (stock) stock.textContent = "160";
+      })();
       window.__pendingProfile = null;
       window.__activeProfile = null;
       window.pickProfile = function (name) {

@@ -24,6 +24,7 @@ const LOCAL_STORAGE_KEY = "vape_ops_sales";
 
 let appRootEl;
 let costPerVapeEl;
+let stockRemainingEl;
 let profileSelectSection;
 let dashboardSection;
 let activeProfileNameEl;
@@ -305,10 +306,38 @@ async function loadAllSales({ silent = false } = {}) {
   }
 }
 
-function initCostInfo() {
-  if (costPerVapeEl) {
-    costPerVapeEl.textContent = formatCurrency(COST_PER_VAPE);
+function getTotalSoldUnits() {
+  let units = 0;
+  for (const name of ["Aron", "Mehmet"]) {
+    const profile = state.profiles[name];
+    if (!profile?.sales) continue;
+    for (const sale of profile.sales) {
+      units += sale.qty || 0;
+    }
   }
+  return units;
+}
+
+function getStockRemaining() {
+  return Math.max(0, TOTAL_VAPES - getTotalSoldUnits());
+}
+
+function updateTelemetry() {
+  const costEl = costPerVapeEl || document.getElementById("costPerVape");
+  const stockEl = stockRemainingEl || document.getElementById("stockRemaining");
+
+  if (costEl) {
+    costEl.textContent = formatCurrency(COST_PER_VAPE);
+  }
+  if (stockEl) {
+    stockEl.textContent = formatNumber(getStockRemaining());
+    stockEl.classList.toggle("stock-low", getStockRemaining() <= 20);
+    stockEl.classList.toggle("stock-empty", getStockRemaining() === 0);
+  }
+}
+
+function initCostInfo() {
+  updateTelemetry();
 }
 
 function getProfileSelectEl() {
@@ -790,6 +819,7 @@ function updateCharts() {
 }
 
 function updateUI() {
+  updateTelemetry();
   updateStats();
   renderSalesList();
   try {
@@ -802,6 +832,7 @@ function updateUI() {
 function bindDomRefs() {
   appRootEl = document.getElementById("appRoot");
   costPerVapeEl = document.getElementById("costPerVape");
+  stockRemainingEl = document.getElementById("stockRemaining");
   profileSelectSection = document.getElementById("profile-select");
   dashboardSection = document.getElementById("dashboard");
   activeProfileNameEl = document.getElementById("activeProfileName");
@@ -851,7 +882,7 @@ window.onProfilePicked = function (name) {
 function initApp() {
   bindDomRefs();
   state.loading = false;
-  initCostInfo();
+  updateTelemetry();
   setupEvents();
   initSupabase();
   testSupabaseConnection().catch(console.error);
@@ -873,6 +904,10 @@ window.submitSale = function (event) {
 
 function bootApp() {
   try {
+    bindDomRefs();
+    updateTelemetry();
+    loadFromLocalStorage();
+    updateTelemetry();
     initApp();
   } catch (err) {
     console.error("Init fehlgeschlagen:", err);

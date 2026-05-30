@@ -24,15 +24,21 @@
 
 html {
   scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right)
+    env(safe-area-inset-bottom) env(safe-area-inset-left);
+  -webkit-overflow-scrolling: touch;
 }
 
 /* —— Background layers —— */
@@ -128,7 +134,7 @@ body:hover .cursor-glow {
   z-index: 10;
   max-width: 1080px;
   margin: 0 auto;
-  padding: 32px 20px 48px;
+  padding: 16px 16px 48px;
   isolation: isolate;
 }
 
@@ -239,15 +245,22 @@ body:hover .cursor-glow {
 .telemetry-bar {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
+  justify-content: space-between;
   gap: 0;
-  padding: 16px 20px;
+  padding: 14px 16px;
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 4px;
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   position: relative;
   overflow: hidden;
+}
+
+.telemetry-bar--top {
+  margin-bottom: 16px;
+  z-index: 50;
 }
 
 .telemetry-bar::before {
@@ -263,12 +276,29 @@ body:hover .cursor-glow {
 .telemetry-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 0 20px;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 12px;
+  flex: 1;
+  min-width: 90px;
 }
 
 .telemetry-item:first-child {
   padding-left: 0;
+}
+
+.telemetry-sub {
+  font-size: 0.65rem;
+  color: var(--text-soft);
+  letter-spacing: 0.06em;
+}
+
+#stockRemaining.stock-low {
+  color: #fbbf24;
+}
+
+#stockRemaining.stock-empty {
+  color: var(--danger);
 }
 
 .telemetry-label {
@@ -422,6 +452,9 @@ main {
   z-index: 101;
   pointer-events: auto !important;
   touch-action: manipulation;
+  min-height: 72px;
+  -webkit-user-select: none;
+  user-select: none;
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0;
@@ -605,6 +638,7 @@ main {
 .primary-button {
   border: none;
   border-radius: 2px;
+  min-height: 48px;
   padding: 14px 28px;
   background: var(--lime);
   color: #050508;
@@ -682,7 +716,9 @@ input[type="text"] {
   padding: 12px 14px;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 1rem;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
@@ -916,22 +952,42 @@ canvas {
 
 @media (max-width: 720px) {
   .app-root {
-    padding-inline: 14px;
+    padding: 12px 12px 40px;
   }
 
-  .telemetry-bar {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+  .hero-title-line {
+    font-size: clamp(2.4rem, 14vw, 3.8rem);
   }
 
-  .telemetry-divider {
-    width: 100%;
-    height: 1px;
+  .telemetry-bar--top {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .telemetry-bar--top .telemetry-divider {
+    display: none;
   }
 
   .telemetry-item {
-    padding: 0;
+    padding: 8px 10px;
+    min-width: 0;
+    background: rgba(0, 0, 0, 0.35);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+  }
+
+  .telemetry-value {
+    font-size: 1.35rem;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-card-inner {
+    padding: 16px;
   }
 
   .stats-grid {
