@@ -8,7 +8,7 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#050508" />
-    <title>VAPE OPS — Aron & Mehmet</title>
+    <title>VAPE OPS — Bestellung</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -25,11 +25,104 @@
       <div class="bg-scanlines"></div>
     </div>
     <div class="app-root" id="appRoot">
-      <div class="telemetry-bar telemetry-bar--top" id="stockBanner">
+      <!-- Öffentliches Bestellfenster (Startseite) -->
+      <section id="public-shop" class="panel shop-panel">
+        <header class="shop-hero">
+          <div class="hero-badge shop-badge">
+            <span class="pulse-dot" id="shopSyncDot"></span>
+            <span id="shopSyncStatus">LIVE BESTAND</span>
+          </div>
+          <h1 class="shop-title">
+            <span class="hero-title-line">VAPE</span>
+            <span class="hero-title-line hero-title-line--accent">OPS</span>
+          </h1>
+          <p class="shop-tagline">Disposables · frische Sorten</p>
+        </header>
+
+        <div class="shop-price-card">
+          <span class="shop-price-label">Preis pro Stück</span>
+          <span class="shop-price-value" id="publicShopPrice">12,00 €</span>
+          <p class="shop-price-note">
+            Festpreis im Shop — unabhängig von Verkäufer-Einträgen
+          </p>
+        </div>
+
+        <div class="panel-header">
+          <span class="panel-tag">VERFÜGBAR</span>
+          <h2 class="panel-title">Sorten auf Lager</h2>
+          <p class="panel-desc">Aktueller Bestand — wird live aktualisiert</p>
+        </div>
+        <div id="publicFlavorStock" class="flavor-stock-list"></div>
+
+        <button type="button" id="sellerAreaBtn" class="ghost-button seller-area-btn">
+          Verkäufer-Bereich →
+        </button>
+      </section>
+
+      <!-- Passwort für Verkäufer -->
+      <div id="sellerGateModal" class="modal hidden" role="dialog" aria-labelledby="sellerGateTitle">
+        <div class="modal-backdrop" data-close-gate></div>
+        <div class="modal-card">
+          <span class="panel-tag">VERKÄUFER</span>
+          <h2 id="sellerGateTitle" class="panel-title">Zugang</h2>
+          <p class="panel-desc">Passwort eingeben</p>
+          <form id="sellerGateForm" class="gate-form">
+            <input
+              id="sellerPassword"
+              type="password"
+              inputmode="text"
+              autocomplete="current-password"
+              placeholder="Passwort"
+              required
+            />
+            <p id="sellerGateError" class="sale-feedback error hidden" aria-live="polite"></p>
+            <div class="gate-actions">
+              <button type="button" class="ghost-button" data-close-gate>Abbrechen</button>
+              <button type="submit" class="primary-button">Einloggen</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Verkäufer: Profilwahl (nach Passwort) -->
+      <section id="profile-select" class="panel profile-select-panel landing-profiles hidden">
+        <div class="panel-header panel-header--row">
+          <div>
+            <span class="panel-tag">01 // VERKÄUFER</span>
+            <h2 class="panel-title">Wer verkauft gerade?</h2>
+            <p class="panel-desc">Tippe auf dein Profil:</p>
+          </div>
+          <button type="button" id="backToShopBtn" class="ghost-button">← Shop</button>
+        </div>
+        <div class="profile-grid">
+          <button type="button" class="profile-card profile-card--aron" data-profile="Aron">
+            <div class="profile-card-inner">
+              <div class="avatar avatar-aron">A</div>
+              <div class="profile-card-text">
+                <div class="profile-name">Aron</div>
+                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+              </div>
+              <span class="profile-enter">ENTER →</span>
+            </div>
+          </button>
+          <button type="button" class="profile-card profile-card--mehmet" data-profile="Mehmet">
+            <div class="profile-card-inner">
+              <div class="avatar avatar-mehmet">M</div>
+              <div class="profile-card-text">
+                <div class="profile-name">Mehmet</div>
+                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
+              </div>
+              <span class="profile-enter">ENTER →</span>
+            </div>
+          </button>
+        </div>
+      </section>
+
+      <div class="telemetry-bar telemetry-bar--top hidden" id="stockBanner">
         <div class="telemetry-item">
-          <span class="telemetry-label">STOCK</span>
-          <span class="telemetry-value" id="stockRemaining">160</span>
-          <span class="telemetry-sub">von 160 übrig</span>
+          <span class="telemetry-label">STOCK GESAMT</span>
+          <span class="telemetry-value" id="stockRemaining">—</span>
+          <span class="telemetry-sub">Sorten-Summe</span>
         </div>
         <div class="telemetry-divider" aria-hidden="true"></div>
         <div class="telemetry-item">
@@ -43,45 +136,7 @@
         </div>
       </div>
 
-      <section id="profile-select" class="panel profile-select-panel landing-profiles">
-        <div class="panel-header">
-          <span class="panel-tag">01 // VERKÄUFER</span>
-          <h2 class="panel-title">Wer verkauft gerade?</h2>
-          <p class="panel-desc">Tippe auf dein Profil:</p>
-        </div>
-        <div class="profile-grid">
-          <button
-            type="button"
-            class="profile-card profile-card--aron"
-            data-profile="Aron"
-          >
-            <div class="profile-card-inner">
-              <div class="avatar avatar-aron">A</div>
-              <div class="profile-card-text">
-                <div class="profile-name">Aron</div>
-                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
-              </div>
-              <span class="profile-enter">ENTER →</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            class="profile-card profile-card--mehmet"
-            data-profile="Mehmet"
-          >
-            <div class="profile-card-inner">
-              <div class="avatar avatar-mehmet">M</div>
-              <div class="profile-card-text">
-                <div class="profile-name">Mehmet</div>
-                <div class="profile-meta">Umsatz · Gewinn · Stats</div>
-              </div>
-              <span class="profile-enter">ENTER →</span>
-            </div>
-          </button>
-        </div>
-      </section>
-
-      <header class="hero hero--landing">
+      <header class="hero hero--landing hidden" id="sellerHero">
         <div class="hero-badge">
           <span class="pulse-dot" id="syncDot"></span>
           <span id="syncStatus">CLOUD SYNC</span>
@@ -109,6 +164,14 @@
             </div>
           </section>
 
+          <section class="panel flavor-inventory-panel">
+            <div class="panel-header">
+              <span class="panel-tag">LAGER</span>
+              <h2 class="panel-title">Geschmäcker — Bestand</h2>
+            </div>
+            <div id="sellerFlavorStock" class="flavor-stock-list"></div>
+          </section>
+
           <section class="panel sale-entry-panel">
             <div class="panel-header">
               <span class="panel-tag">02 // SALE INPUT</span>
@@ -119,6 +182,10 @@
               class="sale-form"
               onsubmit="window.submitSale(event); return false;"
             >
+              <div class="form-field">
+                <label for="saleFlavor">Geschmack</label>
+                <select id="saleFlavor" required></select>
+              </div>
               <div class="form-field">
                 <label for="buyerName">Käufer</label>
                 <input
@@ -159,7 +226,8 @@
             </form>
             <p id="saleFeedback" class="sale-feedback" aria-live="polite"></p>
             <p class="hint">
-              Einkaufspreis fix: <strong>6,13 €</strong> pro Vape (980 € ÷ 160)
+              Einkaufspreis fix: <strong>6,13 €</strong> pro Vape · Shop-Preis für Kunden:
+              <strong id="hintShopPrice">12,00 €</strong> (separat)
             </p>
           </section>
 
@@ -244,37 +312,45 @@
         </section>
       </main>
 
-      <footer class="site-footer">
+      <footer class="site-footer" id="siteFooter">
         <span>VAPE OPS</span>
         <span class="footer-divider">|</span>
-        <span>160 UNITS · 980 €</span>
+        <span id="footerStockNote">Shop · Live-Bestand</span>
       </footer>
     </div>
 
     <script>
-      (function () {
-        var cost = document.getElementById("costPerVape");
-        var stock = document.getElementById("stockRemaining");
-        if (cost) cost.textContent = "6,13 €";
-        if (stock) stock.textContent = "160";
-      })();
       window.__pendingProfile = null;
       window.__activeProfile = null;
+      window.__sellerAuthed = false;
+
       window.pickProfile = function (name) {
+        if (!window.__sellerAuthed && !sessionStorage.getItem("vape_ops_seller_auth")) {
+          var modal = document.getElementById("sellerGateModal");
+          if (modal) modal.classList.remove("hidden");
+          return;
+        }
         var root = document.getElementById("appRoot");
+        var shop = document.getElementById("public-shop");
         var sel = document.getElementById("profile-select");
         var dash = document.getElementById("dashboard");
+        var banner = document.getElementById("stockBanner");
+        var hero = document.getElementById("sellerHero");
         if (!sel || !dash) return;
         window.__pendingProfile = name;
         window.__activeProfile = name;
         root.classList.add("mode-dashboard");
+        shop?.classList.add("hidden");
         sel.classList.add("hidden");
         dash.classList.remove("hidden");
+        banner?.classList.remove("hidden");
+        hero?.classList.remove("hidden");
         window.scrollTo(0, 0);
         if (typeof window.onProfilePicked === "function") {
           window.onProfilePicked(name);
         }
       };
+
       document.addEventListener(
         "click",
         function (e) {
