@@ -8,7 +8,7 @@
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="theme-color" content="#050508" />
-    <title>VAPE OPS — Bestellung</title>
+    <title>VAPE SHOP — Bestellen</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -25,37 +25,92 @@
       <div class="bg-scanlines"></div>
     </div>
     <div class="app-root" id="appRoot">
-      <!-- Öffentliches Bestellfenster (Startseite) -->
-      <section id="public-shop" class="panel shop-panel">
-        <header class="shop-hero">
-          <div class="hero-badge shop-badge">
-            <span class="pulse-dot" id="shopSyncDot"></span>
-            <span id="shopSyncStatus">LIVE BESTAND</span>
+      <!-- Kunden-Shop (Startseite) -->
+      <section id="public-shop" class="shop-page">
+        <header class="site-brand">
+          <div class="site-brand-top">
+            <h1 class="brand-title">
+              <span class="brand-title-main">VAPE</span>
+              <span class="brand-title-accent">SHOP</span>
+            </h1>
+            <div class="status-pill">
+              <span class="pulse-dot" id="shopSyncDot"></span>
+              <span id="shopSyncStatus">Live</span>
+            </div>
           </div>
-          <h1 class="shop-title">
-            <span class="hero-title-line">VAPE</span>
-            <span class="hero-title-line hero-title-line--accent">OPS</span>
-          </h1>
-          <p class="shop-tagline">Disposables · frische Sorten</p>
+          <p class="brand-sub">Wähle Sorte · bestelle · wir melden uns</p>
         </header>
 
-        <div class="shop-price-card">
-          <span class="shop-price-label">Preis pro Stück</span>
-          <span class="shop-price-value" id="publicShopPrice">12,00 €</span>
-          <p class="shop-price-note">
-            Festpreis im Shop — unabhängig von Verkäufer-Einträgen
-          </p>
-        </div>
+        <div class="shop-layout">
+          <section class="shop-block shop-block--price" aria-labelledby="priceHeading">
+            <div class="shop-block-head">
+              <span class="step-num">1</span>
+              <h2 id="priceHeading" class="shop-block-title">Preis</h2>
+            </div>
+            <p class="shop-price-value" id="publicShopPrice">12,00 €</p>
+            <p class="shop-block-hint">pro Stück · Festpreis im Shop</p>
+          </section>
 
-        <div class="panel-header">
-          <span class="panel-tag">VERFÜGBAR</span>
-          <h2 class="panel-title">Sorten auf Lager</h2>
-          <p class="panel-desc">Aktueller Bestand — wird live aktualisiert</p>
+          <section class="shop-block shop-block--stock" aria-labelledby="stockHeading">
+            <div class="shop-block-head">
+              <span class="step-num">2</span>
+              <h2 id="stockHeading" class="shop-block-title">Lager</h2>
+            </div>
+            <p class="shop-block-hint">Was noch da ist (live)</p>
+            <div id="publicFlavorStock" class="flavor-stock-list flavor-stock-list--grid"></div>
+          </section>
+
+          <section class="shop-block shop-block--order" aria-labelledby="orderHeading">
+            <div class="shop-block-head">
+              <span class="step-num">3</span>
+              <h2 id="orderHeading" class="shop-block-title">Bestellen</h2>
+            </div>
+            <form
+              id="orderForm"
+              class="order-form"
+              onsubmit="window.submitOrder(event); return false;"
+            >
+              <div class="form-field">
+                <label for="orderCustomerName">Name</label>
+                <input
+                  id="orderCustomerName"
+                  type="text"
+                  required
+                  placeholder="Dein Name"
+                  autocomplete="name"
+                />
+              </div>
+              <div class="form-field">
+                <label for="orderFlavor">Sorte</label>
+                <select id="orderFlavor" required></select>
+              </div>
+              <div class="form-row order-form-row">
+                <div class="form-field form-field--narrow">
+                  <label for="orderQuantity">Anzahl</label>
+                  <input
+                    id="orderQuantity"
+                    type="number"
+                    min="1"
+                    step="1"
+                    value="1"
+                    required
+                  />
+                </div>
+                <div class="form-field order-total-field">
+                  <label>Summe</label>
+                  <div id="orderTotalPreview" class="order-total-preview">12,00 €</div>
+                </div>
+              </div>
+              <button type="submit" id="submitOrderBtn" class="primary-button order-submit-btn">
+                Bestellung absenden
+              </button>
+            </form>
+            <p id="orderFeedback" class="sale-feedback" aria-live="polite"></p>
+          </section>
         </div>
-        <div id="publicFlavorStock" class="flavor-stock-list"></div>
 
         <button type="button" id="sellerAreaBtn" class="ghost-button seller-area-btn">
-          Verkäufer-Bereich →
+          Verkäufer-Login
         </button>
       </section>
 
@@ -63,14 +118,22 @@
       <div id="sellerGateModal" class="modal hidden" role="dialog" aria-labelledby="sellerGateTitle">
         <div class="modal-backdrop" data-close-gate></div>
         <div class="modal-card">
-          <span class="panel-tag">VERKÄUFER</span>
-          <h2 id="sellerGateTitle" class="panel-title">Zugang</h2>
-          <p class="panel-desc">Passwort eingeben</p>
+          <h2 id="sellerGateTitle" class="panel-title">Verkäufer-Login</h2>
+          <p class="panel-desc">Anmeldung über Supabase (Backend)</p>
           <form id="sellerGateForm" class="gate-form">
+            <div class="form-field">
+              <label for="sellerEmail">E-Mail</label>
+              <input
+                id="sellerEmail"
+                type="email"
+                autocomplete="username"
+                placeholder="verkauf@deine-domain.de"
+                required
+              />
+            </div>
             <input
               id="sellerPassword"
               type="password"
-              inputmode="text"
               autocomplete="current-password"
               placeholder="Passwort"
               required
@@ -88,11 +151,15 @@
       <section id="profile-select" class="panel profile-select-panel landing-profiles hidden">
         <div class="panel-header panel-header--row">
           <div>
-            <span class="panel-tag">01 // VERKÄUFER</span>
-            <h2 class="panel-title">Wer verkauft gerade?</h2>
-            <p class="panel-desc">Tippe auf dein Profil:</p>
+            <h2 class="panel-title">Verkäufer</h2>
+            <p class="panel-desc">Profil auswählen:</p>
           </div>
-          <button type="button" id="backToShopBtn" class="ghost-button">← Shop</button>
+          <div class="profile-header-actions">
+            <button type="button" id="backToShopBtn" class="ghost-button">← Shop</button>
+            <button type="button" id="sellerLogoutBtn" class="ghost-button ghost-button--danger">
+              Abmelden
+            </button>
+          </div>
         </div>
         <div class="profile-grid">
           <button type="button" class="profile-card profile-card--aron" data-profile="Aron">
@@ -143,7 +210,7 @@
         </div>
         <h1 class="hero-title">
           <span class="hero-title-line">VAPE</span>
-          <span class="hero-title-line hero-title-line--accent">OPS</span>
+          <span class="hero-title-line hero-title-line--accent">SHOP</span>
         </h1>
       </header>
 
@@ -154,8 +221,8 @@
               <div class="active-profile-info">
                 <div id="activeProfileAvatar" class="avatar avatar-lg">A</div>
                 <div>
-                  <span class="panel-tag">AKTIV</span>
                   <div id="activeProfileName" class="active-name">Aron</div>
+                  <p class="panel-desc panel-desc--tight">Angemeldet</p>
                 </div>
               </div>
               <button type="button" id="changeProfileBtn" class="ghost-button">
@@ -164,17 +231,19 @@
             </div>
           </section>
 
-          <section class="panel flavor-inventory-panel">
-            <div class="panel-header">
-              <span class="panel-tag">LAGER</span>
-              <h2 class="panel-title">Geschmäcker — Bestand</h2>
+          <section class="panel orders-panel panel--priority">
+            <div class="panel-header panel-header--row">
+              <div>
+                <h2 class="panel-title">Offene Bestellungen</h2>
+                <p class="panel-desc">Von Kunden über den Shop</p>
+              </div>
+              <span id="pendingOrdersBadge" class="orders-badge">0</span>
             </div>
-            <div id="sellerFlavorStock" class="flavor-stock-list"></div>
+            <div id="pendingOrdersList" class="orders-list"></div>
           </section>
 
           <section class="panel sale-entry-panel">
             <div class="panel-header">
-              <span class="panel-tag">02 // SALE INPUT</span>
               <h2 class="panel-title">Verkauf erfassen</h2>
             </div>
             <form
@@ -231,11 +300,17 @@
             </p>
           </section>
 
+          <section class="panel flavor-inventory-panel">
+            <div class="panel-header">
+              <h2 class="panel-title">Lager nach Sorte</h2>
+            </div>
+            <div id="sellerFlavorStock" class="flavor-stock-list flavor-stock-list--grid"></div>
+          </section>
+
           <section class="panel sales-list-panel">
             <div class="panel-header panel-header--row">
               <div>
-                <span class="panel-tag">03 // SALES LOG</span>
-                <h2 class="panel-title">Verkaufte Vapes</h2>
+                <h2 class="panel-title">Verkaufsliste</h2>
               </div>
               <button
                 type="button"
@@ -251,9 +326,8 @@
 
           <section class="panel stats-panel">
             <div class="panel-header">
-              <span class="panel-tag">04 // LIVE DATA</span>
               <h2 class="panel-title">
-                Performance — <span id="statsProfileName">Aron</span>
+                Statistik — <span id="statsProfileName">Aron</span>
               </h2>
             </div>
             <div class="stats-grid">
@@ -278,7 +352,6 @@
 
           <section class="panel charts-panel">
             <div class="panel-header">
-              <span class="panel-tag">05 // TELEMETRY</span>
               <h2 class="panel-title">Verlauf</h2>
             </div>
             <div class="charts-grid">
@@ -295,7 +368,6 @@
 
           <section class="panel comparison-panel">
             <div class="panel-header">
-              <span class="panel-tag">06 // HEAD TO HEAD</span>
               <h2 class="panel-title">Aron vs Mehmet</h2>
             </div>
             <div class="comparison-grid">
@@ -313,9 +385,9 @@
       </main>
 
       <footer class="site-footer" id="siteFooter">
-        <span>VAPE OPS</span>
+        <span>VAPE SHOP</span>
         <span class="footer-divider">|</span>
-        <span id="footerStockNote">Shop · Live-Bestand</span>
+        <span id="footerStockNote">Live-Bestand</span>
       </footer>
     </div>
 
@@ -325,9 +397,13 @@
       window.__sellerAuthed = false;
 
       window.pickProfile = function (name) {
-        if (!window.__sellerAuthed && !sessionStorage.getItem("vape_ops_seller_auth")) {
-          var modal = document.getElementById("sellerGateModal");
-          if (modal) modal.classList.remove("hidden");
+        if (!window.__sellerAuthed) {
+          if (typeof window.openSellerGate === "function") {
+            window.openSellerGate();
+          } else {
+            var modal = document.getElementById("sellerGateModal");
+            if (modal) modal.classList.remove("hidden");
+          }
           return;
         }
         var root = document.getElementById("appRoot");
@@ -370,6 +446,12 @@
     <script>
       if (typeof window.submitSale !== "function") {
         window.submitSale = function (e) {
+          if (e) e.preventDefault();
+          alert("app.js nicht geladen. Bitte Strg+F5 drücken.");
+        };
+      }
+      if (typeof window.submitOrder !== "function") {
+        window.submitOrder = function (e) {
           if (e) e.preventDefault();
           alert("app.js nicht geladen. Bitte Strg+F5 drücken.");
         };

@@ -95,7 +95,7 @@ body {
     rgba(0, 0, 0, 0.12) 2px,
     rgba(0, 0, 0, 0.12) 4px
   );
-  opacity: 0.4;
+  opacity: 0.15;
   pointer-events: none;
 }
 
@@ -344,10 +344,20 @@ main {
   position: absolute;
   top: 0;
   right: 0;
-  width: 120px;
-  height: 120px;
+  width: 80px;
+  height: 80px;
   background: radial-gradient(circle at top right, var(--lime-dim), transparent 70%);
   pointer-events: none;
+  opacity: 0.5;
+}
+
+.panel--priority {
+  border-color: rgba(0, 240, 255, 0.25);
+}
+
+.panel-desc--tight {
+  margin-top: 2px;
+  margin-bottom: 0;
 }
 
 .panel-header {
@@ -360,6 +370,12 @@ main {
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
+}
+
+.profile-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .panel-tag {
@@ -1017,78 +1033,298 @@ canvas {
   }
 }
 
-/* —— Public shop —— */
-.shop-panel {
+/* —— VAPE SHOP (Kunden-Seite) —— */
+.shop-page {
   position: relative;
   z-index: 20;
-  animation: fade-up 0.6s ease-out;
-}
-
-.shop-hero {
-  margin-bottom: 20px;
-}
-
-.shop-title {
-  margin: 0;
-  line-height: 0.9;
   display: flex;
   flex-direction: column;
+  gap: 20px;
+  animation: fade-up 0.5s ease-out;
 }
 
-.shop-title .hero-title-line {
-  font-family: var(--font-display);
-  font-size: clamp(3.2rem, 16vw, 6rem);
-  letter-spacing: 0.04em;
-}
-
-.shop-tagline {
-  margin: 10px 0 0;
-  color: var(--text-soft);
-  font-size: 0.9rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.shop-price-card {
+.site-brand {
   text-align: center;
-  padding: 24px 20px;
-  margin-bottom: 24px;
-  background: linear-gradient(
-    135deg,
-    rgba(212, 255, 0, 0.08) 0%,
-    rgba(0, 240, 255, 0.05) 100%
-  );
-  border: 1px solid var(--border-bright);
-  border-radius: 4px;
+  padding: 8px 0 4px;
 }
 
-.shop-price-label {
-  display: block;
+.site-brand-top {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.brand-title {
+  margin: 0;
+  line-height: 0.95;
+  display: flex;
+  gap: 0.35em;
+  align-items: baseline;
+  justify-content: center;
+}
+
+.brand-title-main {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 14vw, 4.2rem);
+  letter-spacing: 0.06em;
+  color: var(--text);
+}
+
+.brand-title-accent {
+  font-family: var(--font-display);
+  font-size: clamp(2.8rem, 14vw, 4.2rem);
+  letter-spacing: 0.06em;
+  color: var(--lime);
+  text-shadow: 0 0 32px var(--lime-glow);
+}
+
+.brand-sub {
+  margin: 8px 0 0;
+  font-size: 0.88rem;
+  color: var(--text-soft);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
   font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.2em;
-  color: var(--text-soft);
-  margin-bottom: 8px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--lime);
+  background: rgba(212, 255, 0, 0.08);
+  border: 1px solid var(--border);
+  border-radius: 999px;
 }
 
-.shop-price-value {
+.shop-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.shop-block {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px 16px;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+}
+
+.shop-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.step-num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: #050508;
+  background: var(--lime);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.shop-block-title {
+  margin: 0;
   font-family: var(--font-display);
-  font-size: clamp(3rem, 14vw, 4.5rem);
-  color: var(--lime);
-  letter-spacing: 0.06em;
+  font-size: 1.5rem;
+  letter-spacing: 0.05em;
+  font-weight: 400;
   line-height: 1;
 }
 
-.shop-price-note {
-  margin: 12px 0 0;
-  font-size: 0.8rem;
+.shop-block-hint {
+  margin: 0 0 12px;
+  font-size: 0.82rem;
   color: var(--text-soft);
+}
+
+.shop-block--price {
+  text-align: center;
+}
+
+.shop-block--price .shop-block-head {
+  justify-content: center;
+}
+
+.shop-block--price .shop-block-hint {
+  margin-bottom: 0;
+}
+
+.shop-price-value {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 12vw, 3.5rem);
+  color: var(--lime);
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.flavor-stock-list--grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: 42vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 2px;
+}
+
+@media (min-width: 520px) {
+  .flavor-stock-list--grid {
+    grid-template-columns: repeat(2, 1fr);
+    max-height: 36vh;
+  }
+}
+
+.flavor-stock-list--grid .flavor-stock-row {
+  padding: 8px 10px;
+  margin: 0;
+}
+
+.flavor-stock-list--grid .flavor-stock-name {
+  font-size: 0.82rem;
+}
+
+.flavor-stock-list--grid .flavor-stock-count {
+  font-size: 0.72rem;
 }
 
 .seller-area-btn {
   width: 100%;
-  margin-top: 20px;
-  min-height: 48px;
+  margin-top: 4px;
+  min-height: 44px;
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.order-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.order-form-row {
+  align-items: flex-end;
+}
+
+.order-total-field label {
+  display: block;
+}
+
+.order-total-preview {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--lime);
+  letter-spacing: 0.04em;
+  line-height: 1;
+  padding: 8px 0;
+}
+
+.order-submit-btn {
+  width: 100%;
+}
+
+.flavor-stock-reserved {
+  display: block;
+  font-size: 0.65rem;
+  color: var(--cyan);
+  margin-top: 2px;
+}
+
+.orders-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 10px;
+  font-weight: 800;
+  font-size: 0.9rem;
+  background: var(--lime);
+  color: #050508;
+  border-radius: 2px;
+}
+
+.orders-badge--empty {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-soft);
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.order-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: start;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--cyan);
+  border-radius: 2px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.order-item-customer {
+  font-weight: 700;
+  font-size: 1.05rem;
+}
+
+.order-item-flavor {
+  font-size: 0.85rem;
+  color: var(--cyan);
+  margin: 4px 0;
+}
+
+.order-item-meta {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.order-item-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 110px;
+}
+
+.order-item-actions .ghost-button {
+  font-size: 0.75rem;
+  padding: 8px 10px;
+  min-height: 40px;
+}
+
+@media (max-width: 720px) {
+  .order-item {
+    grid-template-columns: 1fr;
+  }
+
+  .order-item-actions {
+    flex-direction: row;
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .order-item-actions .ghost-button {
+    flex: 1;
+  }
 }
 
 /* —— Flavor stock bars —— */
@@ -1253,6 +1489,20 @@ select {
 
 .app-root.mode-dashboard #public-shop {
   display: none !important;
+}
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dashboard .panel-title {
+  font-size: 1.65rem;
+}
+
+.dashboard .panel-header {
+  margin-bottom: 14px;
 }
 
 @media (prefers-reduced-motion: reduce) {

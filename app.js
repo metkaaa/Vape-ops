@@ -1,6 +1,4 @@
 const TOTAL_COST = 980;
-const SELLER_PASSWORD = "VOPS2626";
-const AUTH_SESSION_KEY = "vape_ops_seller_auth";
 const DEFAULT_PUBLIC_PRICE = 12;
 
 const DEFAULT_FLAVORS = [
@@ -30,8 +28,10 @@ const CHART_THEME = {
 const state = {
   activeProfile: null,
   loading: false,
+  authSession: null,
   publicShopPrice: DEFAULT_PUBLIC_PRICE,
   flavors: DEFAULT_FLAVORS.map((f) => ({ ...f })),
+  orders: [],
   profiles: {
     Aron: { sales: [] },
     Mehmet: { sales: [] },
@@ -41,6 +41,7 @@ const state = {
 let supabaseClient = null;
 let useCloud = false;
 const LOCAL_STORAGE_KEY = "vape_ops_sales";
+const LOCAL_ORDERS_KEY = "vape_ops_orders";
 const LOCAL_SHOP_PRICE_KEY = "vape_ops_shop_price";
 
 let appRootEl;
@@ -77,6 +78,14 @@ let syncDotEl;
 let shopSyncStatusEl;
 let shopSyncDotEl;
 let saleFeedbackEl;
+let orderForm;
+let orderCustomerNameInput;
+let orderFlavorSelect;
+let orderQuantityInput;
+let orderTotalPreviewEl;
+let orderFeedbackEl;
+let pendingOrdersListEl;
+let pendingOrdersBadgeEl;
 
 let revenueChart;
 let profitChart;
@@ -118,19 +127,61 @@ function getProfile(name) {
 }
 
 function isSellerAuthed() {
-  return (
-    window.__sellerAuthed === true ||
-    sessionStorage.getItem(AUTH_SESSION_KEY) === "1"
-  );
+  return !!(state.authSession || window.__sellerAuthed);
 }
 
 function setSellerAuthed(value) {
   window.__sellerAuthed = value;
-  if (value) {
-    sessionStorage.setItem(AUTH_SESSION_KEY, "1");
-  } else {
-    sessionStorage.removeItem(AUTH_SESSION_KEY);
+  if (!value) {
+    state.authSession = null;
   }
+}
+
+async function syncSellerAuthFromSession() {
+  if (!supabaseClient) {
+    setSellerAuthed(false);
+    return false;
+  }
+
+  const { data, error } = await supabaseClient.auth.getSession();
+  if (error) {
+    console.error("Auth session:", error);
+    setSellerAuthed(false);
+    return false;
+  }
+
+  state.authSession = data.session;
+  setSellerAuthed(!!data.session);
+  return !!data.session;
+}
+
+function initAuthListener() {
+  if (!supabaseClient?.auth?.onAuthStateChange) return;
+
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
+    state.authSession = session;
+    setSellerAuthed(!!session);
+
+    if (!session) {
+      state.activeProfile = null;
+      window.__activeProfile = null;
+      if (dashboardSection && !dashboardSection.classList.contains("hidden")) {
+        showPublicShopView();
+      }
+    }
+  });
+}
+
+async function sellerLogout() {
+  state.activeProfile = null;
+  window.__activeProfile = null;
+
+  if (supabaseClient) {
+    await supabaseClient.auth.signOut();
+  }
+
+  setSellerAuthed(false);
+  showPublicShopView();
 }
 
 function getFlavorById(id) {
@@ -159,9 +210,18 @@ function getFlavorSoldQty(flavorId) {
   return qty;
 }
 
+function getFlavorReservedQty(flavorId) {
+  let qty = 0;
+  for (const order of state.orders) {
+    if (order.status === "pending" && order.flavor === flavorId) {
+      qty += order.qty || 0;
+    }
+  }
+  return qty;
+}
+
 function getFlavorRemaining(flavor) {
-  const sold = getFlavorSoldQty(flavor.id);
-  return Math.max(0, flavor.initialQty - sold);
+  return getFlavorRemainingExcludingSale(flavor.id, null);
 }
 
 function getFlavorRemainingExcludingSale(flavorId, excludeSaleId) {
@@ -172,7 +232,12 @@ function getFlavorRemainingExcludingSale(flavorId, excludeSaleId) {
     if (sale.id === excludeSaleId) continue;
     if (sale.flavor === flavorId) sold += sale.qty || 0;
   }
-  return Math.max(0, flavor.initialQty - sold);
+  const reserved = getFlavorReservedQty(flavorId);
+  return Math.max(0, flavor.initialQty - sold - reserved);
+}
+
+function getPendingOrders() {
+  return state.orders.filter((o) => o.status === "pending");
 }
 
 function buildFlavorOptionsForSale(sale) {
@@ -237,8 +302,25 @@ function mapRowFromDb(row) {
   };
 }
 
+function mapOrderFromDb(row) {
+  return {
+    id: row.id,
+    customerName: row.customer_name,
+    flavor: row.flavor,
+    qty: row.qty,
+    unitPrice: Number(row.unit_price),
+    total: Number(row.total),
+    status: row.status,
+    timestamp: new Date(row.created_at),
+  };
+}
+
 function createSaleId() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function createOrderId() {
+  return createSaleId();
 }
 
 function isValidAnonKey(key) {
@@ -299,6 +381,27 @@ function loadFromLocalStorage() {
 function saveToLocalStorage() {
   const all = getAllSalesFlat();
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(all));
+}
+
+function loadOrdersFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_ORDERS_KEY);
+    if (!raw) {
+      state.orders = [];
+      return;
+    }
+    state.orders = JSON.parse(raw).map((o) => ({
+      ...o,
+      timestamp: new Date(o.timestamp),
+    }));
+  } catch (e) {
+    console.error(e);
+    state.orders = [];
+  }
+}
+
+function saveOrdersToLocalStorage() {
+  localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(state.orders));
 }
 
 function applyFlavorsFromDb(rows) {
@@ -379,10 +482,18 @@ function initSupabase() {
 
     supabaseClient = window.supabase.createClient(
       window.SUPABASE_CONFIG.url,
-      window.SUPABASE_CONFIG.anonKey
+      window.SUPABASE_CONFIG.anonKey,
+      {
+        auth: {
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true,
+        },
+      }
     );
 
     useCloud = true;
+    initAuthListener();
 
     try {
       supabaseClient
@@ -400,6 +511,15 @@ function initSupabase() {
           "postgres_changes",
           { event: "*", schema: "public", table: "shop_settings" },
           () => loadShopSettings()
+        )
+        .subscribe();
+
+      supabaseClient
+        .channel("orders-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "orders" },
+          () => refreshData({ silent: true })
         )
         .subscribe();
     } catch (channelError) {
@@ -436,6 +556,13 @@ function setShopSyncStatus(text, mode = "ok") {
 
 function showSaleFeedback(message, isError = false) {
   const el = saleFeedbackEl || document.getElementById("saleFeedback");
+  if (!el) return;
+  el.textContent = message;
+  el.classList.toggle("error", isError);
+}
+
+function showOrderFeedback(message, isError = false) {
+  const el = orderFeedbackEl || document.getElementById("orderFeedback");
   if (!el) return;
   el.textContent = message;
   el.classList.toggle("error", isError);
@@ -503,18 +630,52 @@ async function loadAllSales({ silent = false } = {}) {
   if (state.activeProfile) {
     updateUI();
   } else {
-    renderFlavorStockLists();
-    updateTelemetry();
+    afterPublicDataLoad();
   }
+}
+
+async function loadAllOrders({ silent = false } = {}) {
+  if (!silent) setLoading(true);
+
+  if (useCloud && supabaseClient) {
+    const { data, error } = await supabaseClient
+      .from("orders")
+      .select("*")
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      setShopSyncStatus("BESTELLUNG FEHLER", "error");
+      loadOrdersFromLocalStorage();
+    } else {
+      state.orders = data.map(mapOrderFromDb);
+      saveOrdersToLocalStorage();
+    }
+  } else {
+    loadOrdersFromLocalStorage();
+  }
+
+  if (!silent) setLoading(false);
 }
 
 async function refreshData({ silent = true } = {}) {
   await loadFlavorsCatalog();
   await loadShopSettings();
+  await loadAllOrders({ silent: true });
   await loadAllSales({ silent });
   populateFlavorSelect();
+  populateOrderFlavorSelect();
   renderFlavorStockLists();
+  renderPendingOrders();
   updatePublicShopPriceUI();
+  updateOrderTotalPreview();
+}
+
+function afterPublicDataLoad() {
+  renderFlavorStockLists();
+  populateOrderFlavorSelect();
+  updateOrderTotalPreview();
+  updateTelemetry();
 }
 
 function updatePublicShopPriceUI() {
@@ -540,17 +701,22 @@ function updateTelemetry() {
 
 function flavorBarHtml(flavor) {
   const remaining = getFlavorRemaining(flavor);
+  const reserved = getFlavorReservedQty(flavor.id);
   const pct = flavor.initialQty
     ? Math.round((remaining / flavor.initialQty) * 100)
     : 0;
   const low = remaining <= 2 && remaining > 0;
   const empty = remaining === 0;
+  const reservedNote =
+    reserved > 0
+      ? `<span class="flavor-stock-reserved">${formatNumber(reserved)} reserviert</span>`
+      : "";
 
   return `
     <div class="flavor-stock-row ${empty ? "flavor-stock-row--empty" : ""} ${low ? "flavor-stock-row--low" : ""}">
       <div class="flavor-stock-head">
         <span class="flavor-stock-name">${escapeHtml(flavor.name)}</span>
-        <span class="flavor-stock-count">${formatNumber(remaining)} / ${formatNumber(flavor.initialQty)}</span>
+        <span class="flavor-stock-count">${formatNumber(remaining)} / ${formatNumber(flavor.initialQty)} ${reservedNote}</span>
       </div>
       <div class="flavor-stock-track" role="progressbar" aria-valuenow="${remaining}" aria-valuemin="0" aria-valuemax="${flavor.initialQty}">
         <div class="flavor-stock-fill" style="width: ${pct}%"></div>
@@ -591,6 +757,271 @@ function populateFlavorSelect() {
   }
 }
 
+function populateOrderFlavorSelect() {
+  if (!orderFlavorSelect) return;
+
+  const options = state.flavors
+    .map((f) => {
+      const rem = getFlavorRemaining(f);
+      const disabled = rem === 0 ? " disabled" : "";
+      return `<option value="${escapeHtml(f.id)}"${disabled}>${escapeHtml(f.name)} (${rem} bestellbar)</option>`;
+    })
+    .join("");
+
+  orderFlavorSelect.innerHTML =
+    '<option value="" disabled selected>Sorte wählen</option>' + options;
+
+  const firstAvailable = state.flavors.find((f) => getFlavorRemaining(f) > 0);
+  if (firstAvailable) {
+    orderFlavorSelect.value = firstAvailable.id;
+  }
+}
+
+function updateOrderTotalPreview() {
+  const qty = parseInt(orderQuantityInput?.value || "1", 10);
+  const safeQty = isNaN(qty) || qty < 1 ? 1 : qty;
+  const total = state.publicShopPrice * safeQty;
+  if (orderTotalPreviewEl) {
+    orderTotalPreviewEl.textContent = formatCurrency(total);
+  }
+}
+
+function readOrderFormValues() {
+  const nameEl = document.getElementById("orderCustomerName");
+  const flavorEl = document.getElementById("orderFlavor");
+  const qtyEl = document.getElementById("orderQuantity");
+
+  if (!nameEl || !flavorEl || !qtyEl) {
+    return { error: "Bestellformular nicht gefunden. Seite neu laden (Strg+F5)." };
+  }
+
+  const customerName = nameEl.value.trim();
+  const flavorId = flavorEl.value;
+  const flavor = getFlavorById(flavorId);
+  const qty = parseInt(qtyEl.value, 10);
+
+  if (!customerName) {
+    return { error: "Bitte deinen Namen eingeben.", focus: nameEl };
+  }
+  if (!flavorId || !flavor) {
+    return { error: "Bitte eine Sorte wählen.", focus: flavorEl };
+  }
+  if (isNaN(qty) || qty < 1) {
+    return { error: "Bitte gültige Menge eingeben.", focus: qtyEl };
+  }
+
+  const available = getFlavorRemaining(flavor);
+  if (qty > available) {
+    return {
+      error: `Nur noch ${available}× ${flavor.name} bestellbar.`,
+      focus: qtyEl,
+    };
+  }
+
+  const unitPrice = state.publicShopPrice;
+  const total = unitPrice * qty;
+
+  return { customerName, flavorId, flavorName: flavor.name, qty, unitPrice, total, nameEl, flavorEl, qtyEl };
+}
+
+async function handleOrderSubmit(event) {
+  if (event) event.preventDefault();
+  bindDomRefs();
+
+  const form = readOrderFormValues();
+  if (form.error) {
+    showOrderFeedback(form.error, true);
+    form.focus?.focus();
+    return;
+  }
+
+  setLoading(true);
+  showOrderFeedback("Bestellung wird gesendet…");
+
+  const orderPayload = {
+    customer_name: form.customerName,
+    flavor: form.flavorId,
+    qty: form.qty,
+    unit_price: form.unitPrice,
+    total: form.total,
+    status: "pending",
+  };
+
+  try {
+    if (useCloud && supabaseClient) {
+      const { error } = await supabaseClient.from("orders").insert(orderPayload);
+
+      if (error) {
+        console.error(error);
+        if (error.message?.includes("orders") || error.code === "42P01") {
+          showOrderFeedback(
+            "Cloud: Tabelle orders fehlt — fix-orders-table.sql in Supabase ausführen.",
+            true
+          );
+        } else {
+          showOrderFeedback("Fehler: " + error.message, true);
+        }
+        setLoading(false);
+        return;
+      }
+
+      await refreshData({ silent: true });
+      showOrderFeedback(
+        `Bestellung eingegangen! ${form.qty}× ${form.flavorName} · ${formatCurrency(form.total)}`
+      );
+    } else {
+      const order = {
+        id: createOrderId(),
+        customerName: form.customerName,
+        flavor: form.flavorId,
+        qty: form.qty,
+        unitPrice: form.unitPrice,
+        total: form.total,
+        status: "pending",
+        timestamp: new Date(),
+      };
+      state.orders.push(order);
+      saveOrdersToLocalStorage();
+      afterPublicDataLoad();
+      renderPendingOrders();
+      showOrderFeedback(
+        `Bestellung gespeichert (lokal). ${form.qty}× ${form.flavorName} · ${formatCurrency(form.total)}`
+      );
+    }
+
+    document.getElementById("orderForm")?.reset();
+    if (orderQuantityInput) orderQuantityInput.value = "1";
+    populateOrderFlavorSelect();
+    updateOrderTotalPreview();
+  } catch (err) {
+    console.error(err);
+    showOrderFeedback("Unerwarteter Fehler: " + err.message, true);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function setOrderStatus(orderId, status) {
+  if (!isSellerAuthed()) {
+    alert("Bitte als Verkäufer anmelden.");
+    return;
+  }
+  if (state.loading) return;
+
+  const order = state.orders.find((o) => o.id === orderId);
+  if (!order || order.status !== "pending") return;
+
+  setLoading(true);
+
+  if (useCloud && supabaseClient) {
+    const { error } = await supabaseClient
+      .from("orders")
+      .update({ status })
+      .eq("id", orderId);
+
+    if (error) {
+      alert("Aktion fehlgeschlagen: " + error.message);
+      setLoading(false);
+      return;
+    }
+
+    await refreshData({ silent: true });
+  } else {
+    order.status = status;
+    saveOrdersToLocalStorage();
+    await refreshData({ silent: true });
+  }
+
+  setLoading(false);
+}
+
+function fillOrderIntoSaleForm(order) {
+  const buyerEl = document.getElementById("buyerName");
+  const priceEl = document.getElementById("salePrice");
+  const qtyEl = document.getElementById("saleQuantity");
+
+  if (buyerEl) buyerEl.value = order.customerName;
+  if (saleFlavorSelect && order.flavor) saleFlavorSelect.value = order.flavor;
+  if (qtyEl) qtyEl.value = String(order.qty);
+  if (priceEl) priceEl.value = String(order.unitPrice);
+
+  document.querySelector(".sale-entry-panel")?.scrollIntoView({ behavior: "smooth" });
+  showSaleFeedback(`Daten von ${order.customerName} ins Verkaufsformular übernommen.`);
+}
+
+function renderPendingOrders() {
+  if (!pendingOrdersListEl) return;
+
+  const pending = [...getPendingOrders()].reverse();
+
+  if (pendingOrdersBadgeEl) {
+    pendingOrdersBadgeEl.textContent = String(pending.length);
+    pendingOrdersBadgeEl.classList.toggle("orders-badge--empty", pending.length === 0);
+  }
+
+  if (pending.length === 0) {
+    pendingOrdersListEl.innerHTML =
+      '<p class="sales-empty">Keine offenen Bestellungen.</p>';
+    return;
+  }
+
+  pendingOrdersListEl.innerHTML = pending
+    .map((order) => {
+      return `
+        <article class="order-item" data-order-id="${order.id}">
+          <div class="order-item-main">
+            <div class="order-item-customer">${escapeHtml(order.customerName)}</div>
+            <div class="order-item-flavor">${escapeHtml(getFlavorName(order.flavor))}</div>
+            <div class="order-item-meta">
+              ${order.qty} Stück × ${formatCurrency(order.unitPrice)}
+              · ${formatCurrency(order.total)}
+              · ${formatDateTime(order.timestamp)}
+            </div>
+          </div>
+          <div class="order-item-actions">
+            <button type="button" class="ghost-button order-fill-btn" data-order-id="${order.id}" ${state.loading ? "disabled" : ""}>
+              → Verkauf
+            </button>
+            <button type="button" class="ghost-button order-done-btn" data-order-id="${order.id}" ${state.loading ? "disabled" : ""}>
+              Erledigt
+            </button>
+            <button type="button" class="ghost-button ghost-button--danger order-cancel-btn" data-order-id="${order.id}" ${state.loading ? "disabled" : ""}>
+              Storno
+            </button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  pendingOrdersListEl.querySelectorAll(".order-fill-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const order = state.orders.find((o) => o.id === btn.getAttribute("data-order-id"));
+      if (order) fillOrderIntoSaleForm(order);
+    });
+  });
+
+  pendingOrdersListEl.querySelectorAll(".order-done-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const order = state.orders.find((o) => o.id === btn.getAttribute("data-order-id"));
+      if (!order) return;
+      const ok = confirm(
+        `Bestellung von ${order.customerName} (${order.qty}× ${getFlavorName(order.flavor)}) als erledigt markieren?`
+      );
+      if (ok) setOrderStatus(order.id, "completed");
+    });
+  });
+
+  pendingOrdersListEl.querySelectorAll(".order-cancel-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const order = state.orders.find((o) => o.id === btn.getAttribute("data-order-id"));
+      if (!order) return;
+      const ok = confirm(`Bestellung von ${order.customerName} wirklich stornieren?`);
+      if (ok) setOrderStatus(order.id, "cancelled");
+    });
+  });
+}
+
 function showPublicShopView() {
   const root = appRootEl || document.getElementById("appRoot");
   root?.classList.remove("mode-dashboard");
@@ -603,7 +1034,7 @@ function showPublicShopView() {
   stockBannerEl?.classList.add("hidden");
   sellerHeroEl?.classList.add("hidden");
   window.scrollTo(0, 0);
-  renderFlavorStockLists();
+  afterPublicDataLoad();
   updatePublicShopPriceUI();
 }
 
@@ -631,30 +1062,67 @@ function showDashboardView() {
 function openSellerGate() {
   sellerGateModal?.classList.remove("hidden");
   sellerGateError?.classList.add("hidden");
+  const emailEl = document.getElementById("sellerEmail");
   const pw = document.getElementById("sellerPassword");
-  if (pw) {
-    pw.value = "";
-    setTimeout(() => pw.focus(), 100);
-  }
+  if (emailEl) emailEl.value = "";
+  if (pw) pw.value = "";
+  setTimeout(() => (emailEl || pw)?.focus(), 100);
 }
 
 function closeSellerGate() {
   sellerGateModal?.classList.add("hidden");
 }
 
-function handleSellerGateSubmit(event) {
+async function handleSellerGateSubmit(event) {
   event.preventDefault();
-  const pw = document.getElementById("sellerPassword");
-  const val = pw?.value?.trim() || "";
 
-  if (val !== SELLER_PASSWORD) {
+  if (!useCloud || !supabaseClient) {
     if (sellerGateError) {
-      sellerGateError.textContent = "Falsches Passwort.";
+      sellerGateError.textContent =
+        "Verkäufer-Login braucht Supabase Cloud + Auth (siehe supabase/SELLER-AUTH.md).";
       sellerGateError.classList.remove("hidden");
     }
     return;
   }
 
+  const emailEl = document.getElementById("sellerEmail");
+  const pwEl = document.getElementById("sellerPassword");
+  const email = emailEl?.value?.trim() || "";
+  const password = pwEl?.value || "";
+
+  if (!email || !password) {
+    if (sellerGateError) {
+      sellerGateError.textContent = "E-Mail und Passwort eingeben.";
+      sellerGateError.classList.remove("hidden");
+    }
+    return;
+  }
+
+  if (sellerGateError) {
+    sellerGateError.textContent = "Anmeldung läuft…";
+    sellerGateError.classList.remove("hidden");
+    sellerGateError.classList.remove("error");
+  }
+
+  const { data, error } = await supabaseClient.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error) {
+    console.error(error);
+    if (sellerGateError) {
+      sellerGateError.textContent =
+        error.message === "Invalid login credentials"
+          ? "E-Mail oder Passwort falsch."
+          : error.message;
+      sellerGateError.classList.add("error");
+      sellerGateError.classList.remove("hidden");
+    }
+    return;
+  }
+
+  state.authSession = data.session;
   setSellerAuthed(true);
   closeSellerGate();
   showSellerProfileView();
@@ -804,6 +1272,12 @@ async function handleSaleSubmit(event) {
   if (event) event.preventDefault();
   bindDomRefs();
 
+  if (!isSellerAuthed()) {
+    alert("Bitte zuerst als Verkäufer anmelden.");
+    openSellerGate();
+    return;
+  }
+
   const profileName = getActiveProfileName();
   if (!profileName) {
     alert("Bitte zuerst ein Verkäufer-Profil wählen.");
@@ -867,6 +1341,7 @@ async function handleSaleSubmit(event) {
 }
 
 async function deleteSale(saleId) {
+  if (!isSellerAuthed()) return;
   if (!state.activeProfile || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
@@ -904,6 +1379,7 @@ async function deleteSale(saleId) {
 }
 
 async function updateSaleFlavor(saleId, newFlavorId, selectEl) {
+  if (!isSellerAuthed()) return;
   if (!state.activeProfile || state.loading) return;
 
   const profile = getProfile(state.activeProfile);
@@ -1220,6 +1696,8 @@ function updateUI() {
   updateStats();
   renderFlavorStockLists();
   populateFlavorSelect();
+  populateOrderFlavorSelect();
+  renderPendingOrders();
   renderSalesList();
   try {
     updateCharts();
@@ -1263,6 +1741,14 @@ function bindDomRefs() {
   shopSyncStatusEl = document.getElementById("shopSyncStatus");
   shopSyncDotEl = document.getElementById("shopSyncDot");
   saleFeedbackEl = document.getElementById("saleFeedback");
+  orderForm = document.getElementById("orderForm");
+  orderCustomerNameInput = document.getElementById("orderCustomerName");
+  orderFlavorSelect = document.getElementById("orderFlavor");
+  orderQuantityInput = document.getElementById("orderQuantity");
+  orderTotalPreviewEl = document.getElementById("orderTotalPreview");
+  orderFeedbackEl = document.getElementById("orderFeedback");
+  pendingOrdersListEl = document.getElementById("pendingOrdersList");
+  pendingOrdersBadgeEl = document.getElementById("pendingOrdersBadge");
 }
 
 function setupEvents() {
@@ -1276,6 +1762,10 @@ function setupEvents() {
     showPublicShopView();
   });
 
+  document.getElementById("sellerLogoutBtn")?.addEventListener("click", () => {
+    sellerLogout();
+  });
+
   changeProfileBtn?.addEventListener("click", resetToProfileSelection);
   saleForm?.addEventListener("submit", (e) => {
     e.preventDefault();
@@ -1287,6 +1777,17 @@ function setupEvents() {
     e.preventDefault();
     handleSaleSubmit(e);
   });
+
+  orderForm?.addEventListener("submit", (e) => {
+    e.preventDefault();
+    handleOrderSubmit(e);
+  });
+  document.getElementById("submitOrderBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    handleOrderSubmit(e);
+  });
+  orderQuantityInput?.addEventListener("input", updateOrderTotalPreview);
+  orderFlavorSelect?.addEventListener("change", updateOrderTotalPreview);
 }
 
 window.enterProfile = function (name) {
@@ -1297,40 +1798,45 @@ window.onProfilePicked = function (name) {
   setActiveProfile(name);
 };
 
-function initApp() {
+async function initApp() {
   bindDomRefs();
   state.loading = false;
-
-  if (sessionStorage.getItem(AUTH_SESSION_KEY) === "1") {
-    window.__sellerAuthed = true;
-  }
 
   updatePublicShopPriceUI();
   setupEvents();
   initSupabase();
 
-  refreshData({ silent: true }).then(() => {
-    testSupabaseConnection().catch(console.error);
-  });
+  await syncSellerAuthFromSession();
+
+  await refreshData({ silent: true });
+  testSupabaseConnection().catch(console.error);
 
   if (window.__pendingProfile && isSellerAuthed()) {
-    setActiveProfile(window.__pendingProfile);
+    await setActiveProfile(window.__pendingProfile);
     window.__pendingProfile = null;
   } else {
     showPublicShopView();
   }
 }
 
+window.openSellerGate = openSellerGate;
+
 window.submitSale = function (event) {
   if (event) event.preventDefault();
   return handleSaleSubmit(event);
 };
 
-function bootApp() {
+window.submitOrder = function (event) {
+  if (event) event.preventDefault();
+  return handleOrderSubmit(event);
+};
+
+async function bootApp() {
   try {
     bindDomRefs();
     loadFromLocalStorage();
-    initApp();
+    loadOrdersFromLocalStorage();
+    await initApp();
   } catch (err) {
     console.error("Init fehlgeschlagen:", err);
     alert("App-Fehler: " + err.message + "\n\nBitte F5 drücken.");

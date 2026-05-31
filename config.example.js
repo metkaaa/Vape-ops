@@ -8,3 +8,6 @@ window.SUPABASE_CONFIG = {
   url: "https://DEIN-PROJEKT.supabase.co",
   anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
 };
+
+// Verkäufer-Login: Supabase Auth (E-Mail + Passwort in Dashboard anlegen)
+// Anleitung: supabase/SELLER-AUTH.md
