@@ -24,6 +24,15 @@
       <div class="bg-glow bg-glow--cyan"></div>
       <div class="bg-scanlines"></div>
     </div>
+    <div id="orderToast" class="order-toast hidden" role="status" aria-live="assertive">
+      <span class="order-toast-icon" aria-hidden="true">!</span>
+      <div class="order-toast-body">
+        <strong class="order-toast-title">Neue Bestellung</strong>
+        <span id="orderToastText"></span>
+      </div>
+      <button type="button" id="orderToastDismiss" class="order-toast-dismiss" aria-label="Schließen">×</button>
+    </div>
+
     <div class="app-root" id="appRoot">
       <!-- Kunden-Shop (Startseite) -->
       <section id="public-shop" class="shop-page">
@@ -239,6 +248,11 @@
               </div>
               <span id="pendingOrdersBadge" class="orders-badge">0</span>
             </div>
+            <div class="notify-actions">
+              <button type="button" id="enableNotifyBtn" class="ghost-button">
+                🔔 Benachrichtigungen aktivieren
+              </button>
+            </div>
             <div id="pendingOrdersList" class="orders-list"></div>
           </section>
 
@@ -440,6 +454,7 @@
       );
     </script>
     <script src="config.js"></script>
+    <!-- NOTIFY_CONFIG kann in config.js stehen (siehe config.example.js) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <script src="app.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>

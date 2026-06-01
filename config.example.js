@@ -11,3 +11,12 @@ window.SUPABASE_CONFIG = {
 
 // Verkäufer-Login: Supabase Auth (E-Mail + Passwort in Dashboard anlegen)
 // Anleitung: supabase/SELLER-AUTH.md
+
+// Optional: Push aufs Handy bei neuer Bestellung (ntfy — kostenlos)
+// App „ntfy“ installieren → Topic abonnieren (langer geheimer Name!)
+// Dann z.B. ntfyUrl: "https://ntfy.sh/dein-geheimes-topic-abc123"
+window.NOTIFY_CONFIG = {
+  ntfyUrl: "https://ntfy.sh/DEIN-TOPIC-NAME",
+  sound: true,
+  browserNotifications: true,
+};

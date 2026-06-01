@@ -86,6 +86,12 @@ let orderTotalPreviewEl;
 let orderFeedbackEl;
 let pendingOrdersListEl;
 let pendingOrdersBadgeEl;
+let enableNotifyBtn;
+let orderToastEl;
+let orderToastTextEl;
+
+const recentOrderNotifyIds = new Map();
+const ORDER_NOTIFY_DEDUPE_MS = 8000;
 
 let revenueChart;
 let profitChart;
@@ -519,7 +525,16 @@ function initSupabase() {
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "orders" },
-          () => refreshData({ silent: true })
+          (payload) => {
+            if (
+              payload.eventType === "INSERT" &&
+              payload.new &&
+              payload.new.status === "pending"
+            ) {
+              notifyNewOrder(mapOrderFromDb(payload.new));
+            }
+            refreshData({ silent: true });
+          }
         )
         .subscribe();
     } catch (channelError) {
@@ -566,6 +581,159 @@ function showOrderFeedback(message, isError = false) {
   if (!el) return;
   el.textContent = message;
   el.classList.toggle("error", isError);
+}
+
+function getNotifyConfig() {
+  return window.NOTIFY_CONFIG || {};
+}
+
+function shouldNotifyOrder(orderId) {
+  const now = Date.now();
+  const last = recentOrderNotifyIds.get(orderId);
+  if (last && now - last < ORDER_NOTIFY_DEDUPE_MS) return false;
+  recentOrderNotifyIds.set(orderId, now);
+  if (recentOrderNotifyIds.size > 50) {
+    const oldest = [...recentOrderNotifyIds.entries()].sort((a, b) => a[1] - b[1])[0];
+    if (oldest) recentOrderNotifyIds.delete(oldest[0]);
+  }
+  return true;
+}
+
+function formatOrderNotifyMessage(order) {
+  const flavor = getFlavorName(order.flavor);
+  return `${order.customerName}: ${order.qty}× ${flavor} · ${formatCurrency(order.total)}`;
+}
+
+function playOrderAlertSound() {
+  const cfg = getNotifyConfig();
+  if (cfg.sound === false) return;
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+    setTimeout(() => {
+      const o2 = ctx.createOscillator();
+      const g2 = ctx.createGain();
+      o2.connect(g2);
+      g2.connect(ctx.destination);
+      o2.frequency.value = 1100;
+      o2.type = "sine";
+      g2.gain.setValueAtTime(0.12, ctx.currentTime);
+      g2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+      o2.start(ctx.currentTime);
+      o2.stop(ctx.currentTime + 0.25);
+    }, 180);
+  } catch (e) {
+    console.warn("Sound:", e);
+  }
+}
+
+function showOrderToast(message) {
+  const toast = orderToastEl || document.getElementById("orderToast");
+  const text = orderToastTextEl || document.getElementById("orderToastText");
+  if (!toast || !text) return;
+  text.textContent = message;
+  toast.classList.remove("hidden");
+  clearTimeout(showOrderToast._timer);
+  showOrderToast._timer = setTimeout(() => toast.classList.add("hidden"), 12000);
+}
+
+function showBrowserOrderNotification(order) {
+  const cfg = getNotifyConfig();
+  if (cfg.browserNotifications === false) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+  const body = formatOrderNotifyMessage(order);
+  try {
+    const n = new Notification("VAPE SHOP — Neue Bestellung", {
+      body,
+      icon: undefined,
+      tag: `order-${order.id}`,
+      requireInteraction: false,
+    });
+    n.onclick = () => {
+      window.focus();
+      n.close();
+      if (isSellerAuthed()) {
+        if (!state.activeProfile) showSellerProfileView();
+        else {
+          showDashboardView();
+          document.querySelector(".orders-panel")?.scrollIntoView({ behavior: "smooth" });
+        }
+      } else {
+        openSellerGate();
+      }
+    };
+  } catch (e) {
+    console.warn("Notification:", e);
+  }
+}
+
+async function pushNtfyOrder(order) {
+  const url = getNotifyConfig().ntfyUrl?.trim();
+  if (!url) return;
+
+  const body = formatOrderNotifyMessage(order);
+  try {
+    await fetch(url, {
+      method: "POST",
+      headers: {
+        Title: "VAPE SHOP — Neue Bestellung",
+        Tags: "shopping_cart",
+        Priority: "high",
+      },
+      body,
+      mode: "cors",
+    });
+  } catch (e) {
+    console.warn("ntfy:", e);
+  }
+}
+
+function notifyNewOrder(order) {
+  if (!order || order.status !== "pending") return;
+  if (!shouldNotifyOrder(order.id)) return;
+
+  const message = formatOrderNotifyMessage(order);
+
+  if (isSellerAuthed()) {
+    playOrderAlertSound();
+    showOrderToast(message);
+    showBrowserOrderNotification(order);
+  }
+
+  pushNtfyOrder(order);
+}
+
+async function requestSellerNotificationPermission() {
+  if (!("Notification" in window)) {
+    alert("Browser unterstützt keine Benachrichtigungen.");
+    return false;
+  }
+
+  let permission = Notification.permission;
+  if (permission === "default") {
+    permission = await Notification.requestPermission();
+  }
+
+  if (enableNotifyBtn) {
+    if (permission === "granted") {
+      enableNotifyBtn.textContent = "🔔 Benachrichtigungen aktiv";
+      enableNotifyBtn.disabled = true;
+    } else if (permission === "denied") {
+      enableNotifyBtn.textContent = "Benachrichtigungen blockiert (Browser-Einstellungen)";
+    }
+  }
+
+  return permission === "granted";
 }
 
 function getActiveProfileName() {
@@ -869,6 +1037,15 @@ async function handleOrderSubmit(event) {
       showOrderFeedback(
         `Bestellung eingegangen! ${form.qty}× ${form.flavorName} · ${formatCurrency(form.total)}`
       );
+      const latest = [...getPendingOrders()]
+        .reverse()
+        .find(
+          (o) =>
+            o.customerName === form.customerName &&
+            o.flavor === form.flavorId &&
+            o.qty === form.qty
+        );
+      if (latest) notifyNewOrder(latest);
     } else {
       const order = {
         id: createOrderId(),
@@ -884,6 +1061,7 @@ async function handleOrderSubmit(event) {
       saveOrdersToLocalStorage();
       afterPublicDataLoad();
       renderPendingOrders();
+      notifyNewOrder(order);
       showOrderFeedback(
         `Bestellung gespeichert (lokal). ${form.qty}× ${form.flavorName} · ${formatCurrency(form.total)}`
       );
@@ -1185,6 +1363,9 @@ async function setActiveProfile(name) {
   }
 
   updateUI();
+  if (Notification.permission === "default") {
+    requestSellerNotificationPermission();
+  }
 }
 
 function resetToProfileSelection() {
@@ -1749,6 +1930,9 @@ function bindDomRefs() {
   orderFeedbackEl = document.getElementById("orderFeedback");
   pendingOrdersListEl = document.getElementById("pendingOrdersList");
   pendingOrdersBadgeEl = document.getElementById("pendingOrdersBadge");
+  enableNotifyBtn = document.getElementById("enableNotifyBtn");
+  orderToastEl = document.getElementById("orderToast");
+  orderToastTextEl = document.getElementById("orderToastText");
 }
 
 function setupEvents() {
@@ -1764,6 +1948,14 @@ function setupEvents() {
 
   document.getElementById("sellerLogoutBtn")?.addEventListener("click", () => {
     sellerLogout();
+  });
+
+  enableNotifyBtn?.addEventListener("click", () => {
+    requestSellerNotificationPermission();
+  });
+
+  document.getElementById("orderToastDismiss")?.addEventListener("click", () => {
+    orderToastEl?.classList.add("hidden");
   });
 
   changeProfileBtn?.addEventListener("click", resetToProfileSelection);
