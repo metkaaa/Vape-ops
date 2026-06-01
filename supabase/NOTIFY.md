@@ -1,37 +1,66 @@
-# Benachrichtigung bei neuer Bestellung
+# Benachrichtigung — Checkliste (Handy & Browser)
 
-## 1. Im Browser (Verkäufer)
+## Schritt 1: ntfy auf dem Handy
 
-1. Als Verkäufer einloggen → Dashboard
-2. **„Benachrichtigungen aktivieren“** tippen → erlauben
-3. Seite offen lassen (oder Tab im Hintergrund): bei neuer Bestellung **Ton + Banner + System-Meldung**
+1. App **ntfy** installieren (Play Store / App Store)
+2. **+** → **Subscribe to topic**
+3. Exakt eingeben: `vape-shop-7282929174` (ohne https://)
+4. iPhone/Android: **Einstellungen → ntfy → Benachrichtigungen erlauben**
+5. In der App auf das Topic tippen → Testnachricht von uns abwarten
 
-Funktioniert über **Supabase Realtime** (Tabelle `orders` muss unter Database → Replication aktiviert sein).
+**Manueller Test (ohne Website):** Im Browser am PC öffnen:  
+https://ntfy.sh/vape-shop-7282929174  
+→ sollte sofort eine Meldung auf dem Handy erzeugen (GET sendet auch eine Nachricht).
 
 ---
 
-## 2. Auf dem Handy (kostenlos) — ntfy
-
-1. App **ntfy** installieren ([Android](https://play.google.com/store/apps/details?id=io.heckel.ntfy) / [iOS](https://apps.apple.com/app/ntfy/id1625396347))
-2. **+** → Topic abonnieren → z. B. `vape-shop-geheim-7k9m2` (langer Zufallsname!)
-3. In `config.js` eintragen:
+## Schritt 2: config.js (Website)
 
 ```js
 window.NOTIFY_CONFIG = {
-  ntfyUrl: "https://ntfy.sh/vape-shop-geheim-7k9m2",
+  ntfyUrl: "https://ntfy.sh/vape-shop-7282929174",
   sound: true,
   browserNotifications: true,
 };
 ```
 
-4. Seite neu deployen / Strg+F5
-
-Bei jeder Bestellung kommt eine Push-Nachricht aufs Handy — auch wenn die Website zu ist.
-
-**Hinweis:** Die Topic-URL steht in `config.js` (öffentlich). Nur ein **geheimer Topic-Name** verwenden, den niemand erraten kann.
+- Auf **Render/GitHub** muss dieselbe `config.js` liegen wie lokal
+- Nach Änderung: **Strg+F5** auf der Live-Seite
 
 ---
 
-## Realtime in Supabase
+## Schritt 3: Supabase Cloud
 
-Dashboard → **Database** → **Replication** (oder Publications) → Tabelle **`orders`** für Realtime aktivieren.
+1. Bestellung muss in Tabelle **orders** landen (nicht nur „lokal“)
+2. Oben im Shop: Status **„Cloud live“** / nicht „Lokal“
+3. **Database → Replication**: Tabelle **orders** für Realtime an
+
+---
+
+## Schritt 4: Test auf der Website
+
+1. Als **Verkäufer** einloggen → Dashboard
+2. **„Test-Push senden“** tippen
+3. Handy sollte **sofort** vibrieren/klingeln
+
+Wenn Test klappt, aber echte Bestellung nicht:
+→ Bestellung vom **Shop** (nicht eingeloggt) absenden und prüfen ob Cloud-Fehler angezeigt wird.
+
+---
+
+## Schritt 5: Browser-Benachrichtigungen (optional)
+
+- **„Benachrichtigungen aktivieren“** im Dashboard
+- Nur wenn Verkäufer-Seite **offen** ist (Tab/App im Hintergrund ok)
+
+---
+
+## Häufige Probleme
+
+| Problem | Lösung |
+|--------|--------|
+| Kein Push | Topic in ntfy falsch abonniert |
+| Test-Button ok, Bestellung nein | Cloud-Fehler / `orders`-Tabelle fehlt |
+| Nur lokal | `config.js` Supabase-URL/Key prüfen |
+| iPhone still | ntfy Benachrichtigungen in iOS-Einstellungen |
+| Alter Stand | Render-Deploy abwarten, Cache leeren |

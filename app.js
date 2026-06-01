@@ -678,23 +678,46 @@ function showBrowserOrderNotification(order) {
 }
 
 async function pushNtfyOrder(order) {
-  const url = getNotifyConfig().ntfyUrl?.trim();
-  if (!url) return;
+  const baseUrl = getNotifyConfig().ntfyUrl?.trim();
+  if (!baseUrl) return false;
 
-  const body = formatOrderNotifyMessage(order);
+  const message = order ? formatOrderNotifyMessage(order) : "Test — Benachrichtigung OK";
+  const title = order ? "VAPE SHOP — Neue Bestellung" : "VAPE SHOP — Test";
+
   try {
-    await fetch(url, {
+    const target = new URL(baseUrl);
+    target.searchParams.set("title", title);
+    target.searchParams.set("priority", "high");
+    target.searchParams.set("tags", "shopping_cart");
+
+    const res = await fetch(target.toString(), {
       method: "POST",
-      headers: {
-        Title: "VAPE SHOP — Neue Bestellung",
-        Tags: "shopping_cart",
-        Priority: "high",
-      },
-      body,
+      headers: { "Content-Type": "text/plain" },
+      body: message,
       mode: "cors",
     });
+
+    if (!res.ok) {
+      console.warn("ntfy HTTP", res.status);
+      return false;
+    }
+    return true;
   } catch (e) {
     console.warn("ntfy:", e);
+    return false;
+  }
+}
+
+async function sendTestNotification() {
+  const ok = await pushNtfyOrder(null);
+  if (ok) {
+    alert(
+      "Test gesendet.\n\nKommt auf dem Handy nichts an?\n→ ntfy-App: Topic „vape-shop-7282929174“ abonniert?\n→ System-Benachrichtigungen für ntfy erlaubt?"
+    );
+  } else {
+    alert(
+      "Test fehlgeschlagen.\n\nPrüfe NOTIFY_CONFIG.ntfyUrl in config.js und Internetverbindung."
+    );
   }
 }
 
@@ -1952,6 +1975,10 @@ function setupEvents() {
 
   enableNotifyBtn?.addEventListener("click", () => {
     requestSellerNotificationPermission();
+  });
+
+  document.getElementById("testNtfyBtn")?.addEventListener("click", () => {
+    sendTestNotification();
   });
 
   document.getElementById("orderToastDismiss")?.addEventListener("click", () => {

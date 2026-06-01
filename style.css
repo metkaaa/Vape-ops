@@ -1330,6 +1330,14 @@ canvas {
 /* —— Order notifications —— */
 .notify-actions {
   margin-bottom: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.notify-actions .ghost-button {
+  flex: 1;
+  min-width: 140px;
 }
 
 .order-toast {
