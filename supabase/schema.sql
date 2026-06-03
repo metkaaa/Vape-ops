@@ -45,7 +45,8 @@ insert into public.flavors (id, name, initial_qty, sort_order) values
   ('cherry-berry', 'Cherry Berry', 10, 11),
   ('bingo-crush', 'Bingo Crush', 10, 12),
   ('pineapple-ice', 'Pineapple Ice', 10, 13),
-  ('strawberry-grape', 'Strawberry Grape', 20, 14)
+  ('strawberry-grape', 'Strawberry Grape', 20, 14),
+  ('fruity-fusion', 'Fruity Fusion', 10, 15)
 on conflict (id) do update set
   name = excluded.name,
   initial_qty = excluded.initial_qty,

@@ -16,6 +16,7 @@ const DEFAULT_FLAVORS = [
   { id: "bingo-crush", name: "Bingo Crush", initialQty: 10 },
   { id: "pineapple-ice", name: "Pineapple Ice", initialQty: 10 },
   { id: "strawberry-grape", name: "Strawberry Grape", initialQty: 20 },
+  { id: "fruity-fusion", name: "Fruity Fusion", initialQty: 10 },
 ];
 
 const CHART_THEME = {
