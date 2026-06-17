@@ -28,29 +28,33 @@ create table if not exists public.flavors (
   id text primary key,
   name text not null,
   initial_qty integer not null check (initial_qty > 0),
-  sort_order integer not null default 0
+  sort_order integer not null default 0,
+  holder text not null default 'Aron' check (holder in ('Aron', 'Mehmet'))
 );
 
-insert into public.flavors (id, name, initial_qty, sort_order) values
-  ('cherry', 'Cherry', 10, 1),
-  ('strawberry-ice', 'Strawberry Ice', 10, 2),
-  ('pink-lemonade', 'Pink Lemonade', 10, 3),
-  ('blueberry-on-ice', 'Blueberry on Ice', 10, 4),
-  ('kiwi-passionfruit-guava', 'Kiwi Passionfruit Guava', 10, 5),
-  ('strawberry-kiwi', 'Strawberry Kiwi', 10, 6),
-  ('peach-ice', 'Peach Ice', 10, 7),
-  ('blue-razz-lemonade', 'Blue Razz Lemonade', 10, 8),
-  ('blue-sour-raspberry', 'Blue Sour Raspberry', 10, 9),
-  ('blueberry-cherry-cranberry', 'Blueberry Cherry Cranberry', 10, 10),
-  ('cherry-berry', 'Cherry Berry', 10, 11),
-  ('bingo-crush', 'Bingo Crush', 10, 12),
-  ('pineapple-ice', 'Pineapple Ice', 10, 13),
-  ('strawberry-grape', 'Strawberry Grape', 20, 14),
-  ('fruity-fusion', 'Fruity Fusion', 10, 15)
+alter table public.flavors add column if not exists holder text not null default 'Aron';
+
+insert into public.flavors (id, name, initial_qty, sort_order, holder) values
+  ('cherry', 'Cherry', 10, 1, 'Aron'),
+  ('strawberry-ice', 'Strawberry Ice', 10, 2, 'Mehmet'),
+  ('pink-lemonade', 'Pink Lemonade', 10, 3, 'Aron'),
+  ('blueberry-on-ice', 'Blueberry on Ice', 10, 4, 'Mehmet'),
+  ('kiwi-passionfruit-guava', 'Kiwi Passionfruit Guava', 10, 5, 'Aron'),
+  ('strawberry-kiwi', 'Strawberry Kiwi', 10, 6, 'Mehmet'),
+  ('peach-ice', 'Peach Ice', 10, 7, 'Aron'),
+  ('blue-razz-lemonade', 'Blue Razz Lemonade', 10, 8, 'Mehmet'),
+  ('blue-sour-raspberry', 'Blue Sour Raspberry', 10, 9, 'Aron'),
+  ('blueberry-cherry-cranberry', 'Blueberry Cherry Cranberry', 10, 10, 'Mehmet'),
+  ('cherry-berry', 'Cherry Berry', 10, 11, 'Aron'),
+  ('bingo-crush', 'Bingo Crush', 10, 12, 'Mehmet'),
+  ('pineapple-ice', 'Pineapple Ice', 10, 13, 'Aron'),
+  ('strawberry-grape', 'Strawberry Grape', 20, 14, 'Mehmet'),
+  ('fruity-fusion', 'Fruity Fusion', 10, 15, 'Aron')
 on conflict (id) do update set
   name = excluded.name,
   initial_qty = excluded.initial_qty,
-  sort_order = excluded.sort_order;
+  sort_order = excluded.sort_order,
+  holder = excluded.holder;
 
 -- ── 3. Kundenbestellungen (Shop, getrennt von sales) ──
 create table if not exists public.orders (

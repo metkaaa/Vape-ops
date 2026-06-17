@@ -2,21 +2,21 @@ const TOTAL_COST = 980;
 const DEFAULT_PUBLIC_PRICE = 12;
 
 const DEFAULT_FLAVORS = [
-  { id: "cherry", name: "Cherry", initialQty: 10 },
-  { id: "strawberry-ice", name: "Strawberry Ice", initialQty: 10 },
-  { id: "pink-lemonade", name: "Pink Lemonade", initialQty: 10 },
-  { id: "blueberry-on-ice", name: "Blueberry on Ice", initialQty: 10 },
-  { id: "kiwi-passionfruit-guava", name: "Kiwi Passionfruit Guava", initialQty: 10 },
-  { id: "strawberry-kiwi", name: "Strawberry Kiwi", initialQty: 10 },
-  { id: "peach-ice", name: "Peach Ice", initialQty: 10 },
-  { id: "blue-razz-lemonade", name: "Blue Razz Lemonade", initialQty: 10 },
-  { id: "blue-sour-raspberry", name: "Blue Sour Raspberry", initialQty: 10 },
-  { id: "blueberry-cherry-cranberry", name: "Blueberry Cherry Cranberry", initialQty: 10 },
-  { id: "cherry-berry", name: "Cherry Berry", initialQty: 10 },
-  { id: "bingo-crush", name: "Bingo Crush", initialQty: 10 },
-  { id: "pineapple-ice", name: "Pineapple Ice", initialQty: 10 },
-  { id: "strawberry-grape", name: "Strawberry Grape", initialQty: 20 },
-  { id: "fruity-fusion", name: "Fruity Fusion", initialQty: 10 },
+  { id: "cherry", name: "Cherry", initialQty: 10, holder: "Aron" },
+  { id: "strawberry-ice", name: "Strawberry Ice", initialQty: 10, holder: "Mehmet" },
+  { id: "pink-lemonade", name: "Pink Lemonade", initialQty: 10, holder: "Aron" },
+  { id: "blueberry-on-ice", name: "Blueberry on Ice", initialQty: 10, holder: "Mehmet" },
+  { id: "kiwi-passionfruit-guava", name: "Kiwi Passionfruit Guava", initialQty: 10, holder: "Aron" },
+  { id: "strawberry-kiwi", name: "Strawberry Kiwi", initialQty: 10, holder: "Mehmet" },
+  { id: "peach-ice", name: "Peach Ice", initialQty: 10, holder: "Aron" },
+  { id: "blue-razz-lemonade", name: "Blue Razz Lemonade", initialQty: 10, holder: "Mehmet" },
+  { id: "blue-sour-raspberry", name: "Blue Sour Raspberry", initialQty: 10, holder: "Aron" },
+  { id: "blueberry-cherry-cranberry", name: "Blueberry Cherry Cranberry", initialQty: 10, holder: "Mehmet" },
+  { id: "cherry-berry", name: "Cherry Berry", initialQty: 10, holder: "Aron" },
+  { id: "bingo-crush", name: "Bingo Crush", initialQty: 10, holder: "Mehmet" },
+  { id: "pineapple-ice", name: "Pineapple Ice", initialQty: 10, holder: "Aron" },
+  { id: "strawberry-grape", name: "Strawberry Grape", initialQty: 20, holder: "Mehmet" },
+  { id: "fruity-fusion", name: "Fruity Fusion", initialQty: 10, holder: "Aron" },
 ];
 
 const CHART_THEME = {
@@ -87,6 +87,7 @@ let orderTotalPreviewEl;
 let orderFeedbackEl;
 let pendingOrdersListEl;
 let pendingOrdersBadgeEl;
+let flavorSalesMatrixEl;
 let enableNotifyBtn;
 let orderToastEl;
 let orderToastTextEl;
@@ -198,6 +199,14 @@ function getFlavorById(id) {
 function getFlavorName(id) {
   const f = getFlavorById(id);
   return f ? f.name : id || "—";
+}
+
+function getHolderLetter(holder) {
+  return holder === "Mehmet" ? "M" : "A";
+}
+
+function getFlavorHolder(flavor) {
+  return flavor?.holder === "Mehmet" ? "Mehmet" : "Aron";
 }
 
 function getAllSalesFlat() {
@@ -419,6 +428,7 @@ function applyFlavorsFromDb(rows) {
       name: r.name,
       initialQty: r.initial_qty,
       sortOrder: r.sort_order ?? 0,
+      holder: r.holder === "Mehmet" ? "Mehmet" : "Aron",
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
@@ -891,7 +901,7 @@ function updateTelemetry() {
   }
 }
 
-function flavorBarHtml(flavor) {
+function flavorBarHtml(flavor, { showHolder = false } = {}) {
   const remaining = getFlavorRemaining(flavor);
   const reserved = getFlavorReservedQty(flavor.id);
   const pct = flavor.initialQty
@@ -903,29 +913,113 @@ function flavorBarHtml(flavor) {
     reserved > 0
       ? `<span class="flavor-stock-reserved">${formatNumber(reserved)} reserviert</span>`
       : "";
+  const holder = getFlavorHolder(flavor);
+  const holderLetter = getHolderLetter(holder);
+  const holderClass = holder === "Mehmet" ? "mehmet" : "aron";
+  const holderBadge = showHolder
+    ? `<span class="flavor-holder flavor-holder--${holderClass}" title="Lagerort">${holderLetter}</span>`
+    : "";
 
   return `
-    <div class="flavor-stock-row ${empty ? "flavor-stock-row--empty" : ""} ${low ? "flavor-stock-row--low" : ""}">
-      <div class="flavor-stock-head">
-        <span class="flavor-stock-name">${escapeHtml(flavor.name)}</span>
-        <span class="flavor-stock-count">${formatNumber(remaining)} / ${formatNumber(flavor.initialQty)} ${reservedNote}</span>
-      </div>
-      <div class="flavor-stock-track" role="progressbar" aria-valuenow="${remaining}" aria-valuemin="0" aria-valuemax="${flavor.initialQty}">
-        <div class="flavor-stock-fill" style="width: ${pct}%"></div>
+    <div class="flavor-stock-row ${empty ? "flavor-stock-row--empty" : ""} ${low ? "flavor-stock-row--low" : ""} ${showHolder ? "flavor-stock-row--with-holder" : ""}">
+      ${holderBadge}
+      <div class="flavor-stock-body">
+        <div class="flavor-stock-head">
+          <span class="flavor-stock-name">${escapeHtml(flavor.name)}</span>
+          <span class="flavor-stock-count">${formatNumber(remaining)} / ${formatNumber(flavor.initialQty)} ${reservedNote}</span>
+        </div>
+        <div class="flavor-stock-track" role="progressbar" aria-valuenow="${remaining}" aria-valuemin="0" aria-valuemax="${flavor.initialQty}">
+          <div class="flavor-stock-fill" style="width: ${pct}%"></div>
+        </div>
       </div>
     </div>
   `;
 }
 
+function getFlavorSalesMatrix() {
+  return state.flavors.map((flavor) => {
+    let aron = 0;
+    let mehmet = 0;
+    for (const sale of getAllSalesFlat()) {
+      if (sale.flavor !== flavor.id) continue;
+      if (sale.seller === "Aron") aron += sale.qty || 0;
+      else if (sale.seller === "Mehmet") mehmet += sale.qty || 0;
+    }
+    return { flavor, aron, mehmet, total: aron + mehmet };
+  });
+}
+
+function renderFlavorSalesMatrix() {
+  if (!flavorSalesMatrixEl) return;
+
+  const rows = getFlavorSalesMatrix();
+  let sumAron = 0;
+  let sumMehmet = 0;
+
+  const body = rows
+    .map((row) => {
+      sumAron += row.aron;
+      sumMehmet += row.mehmet;
+      const max = Math.max(row.aron, row.mehmet, 1);
+      const aronPct = row.aron ? Math.round((row.aron / max) * 100) : 0;
+      const mehmetPct = row.mehmet ? Math.round((row.mehmet / max) * 100) : 0;
+      return `
+        <tr>
+          <td class="flavor-matrix-name">${escapeHtml(row.flavor.name)}</td>
+          <td class="flavor-matrix-num flavor-matrix-num--aron">
+            <span class="flavor-matrix-val">${formatNumber(row.aron)}</span>
+            <span class="flavor-matrix-bar" style="width:${aronPct}%"></span>
+          </td>
+          <td class="flavor-matrix-num flavor-matrix-num--mehmet">
+            <span class="flavor-matrix-val">${formatNumber(row.mehmet)}</span>
+            <span class="flavor-matrix-bar" style="width:${mehmetPct}%"></span>
+          </td>
+          <td class="flavor-matrix-total">${formatNumber(row.total)}</td>
+        </tr>
+      `;
+    })
+    .join("");
+
+  flavorSalesMatrixEl.innerHTML = `
+    <div class="flavor-matrix-scroll">
+      <table class="flavor-matrix">
+        <thead>
+          <tr>
+            <th>Sorte</th>
+            <th class="flavor-matrix-th flavor-matrix-th--aron">A</th>
+            <th class="flavor-matrix-th flavor-matrix-th--mehmet">M</th>
+            <th>Σ</th>
+          </tr>
+        </thead>
+        <tbody>${body}</tbody>
+        <tfoot>
+          <tr>
+            <td>Gesamt</td>
+            <td class="flavor-matrix-foot flavor-matrix-foot--aron">${formatNumber(sumAron)}</td>
+            <td class="flavor-matrix-foot flavor-matrix-foot--mehmet">${formatNumber(sumMehmet)}</td>
+            <td class="flavor-matrix-foot">${formatNumber(sumAron + sumMehmet)}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="flavor-matrix-hint">Verkaufte Stück pro Sorte · A / M = Verkäufer</p>
+  `;
+}
+
+function scrollToSellerCharts() {
+  document.getElementById("sellerChartsAnchor")?.scrollIntoView({ behavior: "smooth" });
+}
+
 function renderFlavorStockLists() {
-  const html = state.flavors.map((f) => flavorBarHtml(f)).join("");
+  const publicHtml = state.flavors.map((f) => flavorBarHtml(f, { showHolder: true })).join("");
+  const sellerHtml = state.flavors.map((f) => flavorBarHtml(f)).join("");
 
   if (publicFlavorStockEl) {
     publicFlavorStockEl.innerHTML =
-      html || '<p class="sales-empty">Keine Sorten geladen.</p>';
+      publicHtml || '<p class="sales-empty">Keine Sorten geladen.</p>';
   }
   if (sellerFlavorStockEl) {
-    sellerFlavorStockEl.innerHTML = html;
+    sellerFlavorStockEl.innerHTML = sellerHtml;
   }
 }
 
@@ -1900,6 +1994,7 @@ function updateUI() {
   updateTelemetry();
   updateStats();
   renderFlavorStockLists();
+  renderFlavorSalesMatrix();
   populateFlavorSelect();
   populateOrderFlavorSelect();
   renderPendingOrders();
@@ -1954,6 +2049,7 @@ function bindDomRefs() {
   orderFeedbackEl = document.getElementById("orderFeedback");
   pendingOrdersListEl = document.getElementById("pendingOrdersList");
   pendingOrdersBadgeEl = document.getElementById("pendingOrdersBadge");
+  flavorSalesMatrixEl = document.getElementById("flavorSalesMatrix");
   enableNotifyBtn = document.getElementById("enableNotifyBtn");
   orderToastEl = document.getElementById("orderToast");
   orderToastTextEl = document.getElementById("orderToastText");
@@ -1981,6 +2077,8 @@ function setupEvents() {
   document.getElementById("testNtfyBtn")?.addEventListener("click", () => {
     sendTestNotification();
   });
+
+  document.getElementById("skipToChartsBtn")?.addEventListener("click", scrollToSellerCharts);
 
   document.getElementById("orderToastDismiss")?.addEventListener("click", () => {
     orderToastEl?.classList.add("hidden");

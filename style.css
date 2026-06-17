@@ -1203,6 +1203,171 @@ canvas {
   font-size: 0.72rem;
 }
 
+.flavor-stock-row--with-holder {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.flavor-stock-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.flavor-holder {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+.flavor-holder--aron {
+  color: var(--lime);
+  background: rgba(212, 255, 0, 0.1);
+  border-color: rgba(212, 255, 0, 0.35);
+}
+
+.flavor-holder--mehmet {
+  color: var(--cyan);
+  background: rgba(0, 240, 255, 0.08);
+  border-color: rgba(0, 240, 255, 0.35);
+}
+
+.holder-legend-a {
+  font-family: var(--font-display);
+  color: var(--lime);
+  font-size: 1.1em;
+}
+
+.holder-legend-m {
+  font-family: var(--font-display);
+  color: var(--cyan);
+  font-size: 1.1em;
+}
+
+.skip-charts-btn {
+  white-space: nowrap;
+  min-height: 44px;
+}
+
+.flavor-matrix-host {
+  margin-top: 4px;
+}
+
+.flavor-matrix-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.flavor-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.flavor-matrix th,
+.flavor-matrix td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.flavor-matrix thead th {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-soft);
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.flavor-matrix-th--aron {
+  color: var(--lime) !important;
+  font-family: var(--font-display);
+  font-size: 1.25rem !important;
+  text-align: center !important;
+}
+
+.flavor-matrix-th--mehmet {
+  color: var(--cyan) !important;
+  font-family: var(--font-display);
+  font-size: 1.25rem !important;
+  text-align: center !important;
+}
+
+.flavor-matrix-name {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.flavor-matrix-num {
+  position: relative;
+  text-align: center;
+  min-width: 56px;
+  font-variant-numeric: tabular-nums;
+}
+
+.flavor-matrix-val {
+  position: relative;
+  z-index: 1;
+}
+
+.flavor-matrix-bar {
+  position: absolute;
+  left: 8px;
+  bottom: 6px;
+  height: 3px;
+  max-width: calc(100% - 16px);
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.flavor-matrix-num--aron .flavor-matrix-bar {
+  background: var(--lime);
+}
+
+.flavor-matrix-num--mehmet .flavor-matrix-bar {
+  background: var(--cyan);
+}
+
+.flavor-matrix-total {
+  text-align: center;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+
+.flavor-matrix tfoot td {
+  font-weight: 700;
+  background: rgba(0, 0, 0, 0.25);
+  border-bottom: none;
+}
+
+.flavor-matrix-foot--aron {
+  text-align: center;
+  color: var(--lime);
+}
+
+.flavor-matrix-foot--mehmet {
+  text-align: center;
+  color: var(--cyan);
+}
+
+.flavor-matrix-hint {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
 .seller-area-btn {
   width: 100%;
   margin-top: 4px;

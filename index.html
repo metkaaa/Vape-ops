@@ -65,7 +65,7 @@
               <span class="step-num">2</span>
               <h2 id="stockHeading" class="shop-block-title">Lager</h2>
             </div>
-            <p class="shop-block-hint">Was noch da ist (live)</p>
+            <p class="shop-block-hint">Was noch da ist (live) · <span class="holder-legend"><span class="holder-legend-a">A</span> / <span class="holder-legend-m">M</span> = Lagerort</span></p>
             <div id="publicFlavorStock" class="flavor-stock-list flavor-stock-list--grid"></div>
           </section>
 
@@ -260,8 +260,13 @@
           </section>
 
           <section class="panel sale-entry-panel">
-            <div class="panel-header">
-              <h2 class="panel-title">Verkauf erfassen</h2>
+            <div class="panel-header panel-header--row">
+              <div>
+                <h2 class="panel-title">Verkauf erfassen</h2>
+              </div>
+              <button type="button" id="skipToChartsBtn" class="ghost-button skip-charts-btn">
+                Zu Diagrammen ↓
+              </button>
             </div>
             <form
               id="saleForm"
@@ -317,6 +322,14 @@
             </p>
           </section>
 
+          <section class="panel flavor-sales-matrix-panel">
+            <div class="panel-header">
+              <h2 class="panel-title">Verkäufe nach Sorte</h2>
+              <p class="panel-desc">Wer hat wie viele von welchem Geschmack verkauft</p>
+            </div>
+            <div id="flavorSalesMatrix" class="flavor-matrix-host"></div>
+          </section>
+
           <section class="panel flavor-inventory-panel">
             <div class="panel-header">
               <h2 class="panel-title">Lager nach Sorte</h2>
@@ -367,7 +380,7 @@
             </div>
           </section>
 
-          <section class="panel charts-panel">
+          <section class="panel charts-panel" id="sellerChartsAnchor">
             <div class="panel-header">
               <h2 class="panel-title">Verlauf</h2>
             </div>
