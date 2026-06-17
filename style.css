@@ -1203,30 +1203,46 @@ canvas {
   font-size: 0.72rem;
 }
 
-.flavor-stock-row--with-holder {
-  display: flex;
-  align-items: stretch;
-  gap: 10px;
-}
-
-.flavor-stock-body {
+.flavor-stock-row--with-sellers .flavor-stock-body {
   flex: 1;
   min-width: 0;
 }
 
-.flavor-holder {
-  flex-shrink: 0;
+.flavor-stock-sellers {
   display: flex;
+  gap: 8px;
+  margin: 8px 0 6px;
+}
+
+.flavor-stock-sellers--compact {
+  margin: 4px 0;
+}
+
+.flavor-holder {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  width: 2.75rem;
-  min-height: 2.75rem;
+  gap: 2px;
+  min-height: 3.25rem;
+  padding: 6px 8px;
   font-family: var(--font-display);
-  font-size: 1.75rem;
-  line-height: 1;
-  letter-spacing: 0.02em;
   border-radius: 6px;
   border: 1px solid var(--border);
+}
+
+.flavor-holder-letter {
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.flavor-holder-qty {
+  font-family: var(--font-body);
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .flavor-holder--aron {
@@ -1239,6 +1255,60 @@ canvas {
   color: var(--cyan);
   background: rgba(0, 240, 255, 0.08);
   border-color: rgba(0, 240, 255, 0.35);
+}
+
+.flavor-holder--zero {
+  opacity: 0.45;
+}
+
+.my-stock-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+  max-height: 50vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (min-width: 520px) {
+  .my-stock-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.my-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.my-stock-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.my-stock-input {
+  width: 4.5rem;
+  text-align: center;
+  padding: 10px 8px !important;
+}
+
+.my-stock-save {
+  width: 100%;
+}
+
+.flavor-stock-row--with-holder {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
 }
 
 .holder-legend-a {

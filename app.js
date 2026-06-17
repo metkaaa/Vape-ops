@@ -2,21 +2,21 @@ const TOTAL_COST = 980;
 const DEFAULT_PUBLIC_PRICE = 12;
 
 const DEFAULT_FLAVORS = [
-  { id: "cherry", name: "Cherry", initialQty: 10, holder: "Aron" },
-  { id: "strawberry-ice", name: "Strawberry Ice", initialQty: 10, holder: "Mehmet" },
-  { id: "pink-lemonade", name: "Pink Lemonade", initialQty: 10, holder: "Aron" },
-  { id: "blueberry-on-ice", name: "Blueberry on Ice", initialQty: 10, holder: "Mehmet" },
-  { id: "kiwi-passionfruit-guava", name: "Kiwi Passionfruit Guava", initialQty: 10, holder: "Aron" },
-  { id: "strawberry-kiwi", name: "Strawberry Kiwi", initialQty: 10, holder: "Mehmet" },
-  { id: "peach-ice", name: "Peach Ice", initialQty: 10, holder: "Aron" },
-  { id: "blue-razz-lemonade", name: "Blue Razz Lemonade", initialQty: 10, holder: "Mehmet" },
-  { id: "blue-sour-raspberry", name: "Blue Sour Raspberry", initialQty: 10, holder: "Aron" },
-  { id: "blueberry-cherry-cranberry", name: "Blueberry Cherry Cranberry", initialQty: 10, holder: "Mehmet" },
-  { id: "cherry-berry", name: "Cherry Berry", initialQty: 10, holder: "Aron" },
-  { id: "bingo-crush", name: "Bingo Crush", initialQty: 10, holder: "Mehmet" },
-  { id: "pineapple-ice", name: "Pineapple Ice", initialQty: 10, holder: "Aron" },
-  { id: "strawberry-grape", name: "Strawberry Grape", initialQty: 20, holder: "Mehmet" },
-  { id: "fruity-fusion", name: "Fruity Fusion", initialQty: 10, holder: "Aron" },
+  { id: "cherry", name: "Cherry", initialQty: 10 },
+  { id: "strawberry-ice", name: "Strawberry Ice", initialQty: 10 },
+  { id: "pink-lemonade", name: "Pink Lemonade", initialQty: 10 },
+  { id: "blueberry-on-ice", name: "Blueberry on Ice", initialQty: 10 },
+  { id: "kiwi-passionfruit-guava", name: "Kiwi Passionfruit Guava", initialQty: 10 },
+  { id: "strawberry-kiwi", name: "Strawberry Kiwi", initialQty: 10 },
+  { id: "peach-ice", name: "Peach Ice", initialQty: 10 },
+  { id: "blue-razz-lemonade", name: "Blue Razz Lemonade", initialQty: 10 },
+  { id: "blue-sour-raspberry", name: "Blue Sour Raspberry", initialQty: 10 },
+  { id: "blueberry-cherry-cranberry", name: "Blueberry Cherry Cranberry", initialQty: 10 },
+  { id: "cherry-berry", name: "Cherry Berry", initialQty: 10 },
+  { id: "bingo-crush", name: "Bingo Crush", initialQty: 10 },
+  { id: "pineapple-ice", name: "Pineapple Ice", initialQty: 10 },
+  { id: "strawberry-grape", name: "Strawberry Grape", initialQty: 20 },
+  { id: "fruity-fusion", name: "Fruity Fusion", initialQty: 10 },
 ];
 
 const CHART_THEME = {
@@ -32,6 +32,7 @@ const state = {
   authSession: null,
   publicShopPrice: DEFAULT_PUBLIC_PRICE,
   flavors: DEFAULT_FLAVORS.map((f) => ({ ...f })),
+  inventory: { Aron: {}, Mehmet: {} },
   orders: [],
   profiles: {
     Aron: { sales: [] },
@@ -43,6 +44,7 @@ let supabaseClient = null;
 let useCloud = false;
 const LOCAL_STORAGE_KEY = "vape_ops_sales";
 const LOCAL_ORDERS_KEY = "vape_ops_orders";
+const LOCAL_INVENTORY_KEY = "vape_ops_inventory";
 const LOCAL_SHOP_PRICE_KEY = "vape_ops_shop_price";
 
 let appRootEl;
@@ -88,6 +90,8 @@ let orderFeedbackEl;
 let pendingOrdersListEl;
 let pendingOrdersBadgeEl;
 let flavorSalesMatrixEl;
+let myStockGridEl;
+let myStockFeedbackEl;
 let enableNotifyBtn;
 let orderToastEl;
 let orderToastTextEl;
@@ -201,12 +205,38 @@ function getFlavorName(id) {
   return f ? f.name : id || "—";
 }
 
-function getHolderLetter(holder) {
-  return holder === "Mehmet" ? "M" : "A";
+const SELLER_NAMES = ["Aron", "Mehmet"];
+
+function ensureInventoryShape() {
+  if (!state.inventory) state.inventory = { Aron: {}, Mehmet: {} };
+  for (const seller of SELLER_NAMES) {
+    if (!state.inventory[seller]) state.inventory[seller] = {};
+    for (const flavor of state.flavors) {
+      if (state.inventory[seller][flavor.id] == null) {
+        state.inventory[seller][flavor.id] = 0;
+      }
+    }
+  }
 }
 
-function getFlavorHolder(flavor) {
-  return flavor?.holder === "Mehmet" ? "Mehmet" : "Aron";
+function getSellerStock(seller, flavorId) {
+  ensureInventoryShape();
+  return Math.max(0, Number(state.inventory[seller]?.[flavorId]) || 0);
+}
+
+function getFlavorStockSplit(flavorId) {
+  return {
+    aron: getSellerStock("Aron", flavorId),
+    mehmet: getSellerStock("Mehmet", flavorId),
+  };
+}
+
+function getSellerStockForSaleEdit(seller, flavorId, sale) {
+  let stock = getSellerStock(seller, flavorId);
+  if (sale && sale.seller === seller && sale.flavor === flavorId) {
+    stock += sale.qty || 0;
+  }
+  return stock;
 }
 
 function getAllSalesFlat() {
@@ -241,15 +271,14 @@ function getFlavorRemaining(flavor) {
 }
 
 function getFlavorRemainingExcludingSale(flavorId, excludeSaleId) {
-  const flavor = getFlavorById(flavorId);
-  if (!flavor) return 0;
-  let sold = 0;
-  for (const sale of getAllSalesFlat()) {
-    if (sale.id === excludeSaleId) continue;
-    if (sale.flavor === flavorId) sold += sale.qty || 0;
-  }
+  const split = getFlavorStockSplit(flavorId);
+  const total = split.aron + split.mehmet;
   const reserved = getFlavorReservedQty(flavorId);
-  return Math.max(0, flavor.initialQty - sold - reserved);
+  return Math.max(0, total - reserved);
+}
+
+function getSellerStockRemaining(seller, flavorId) {
+  return getSellerStock(seller, flavorId);
 }
 
 function getPendingOrders() {
@@ -258,13 +287,14 @@ function getPendingOrders() {
 
 function buildFlavorOptionsForSale(sale) {
   const current = sale.flavor || "";
+  const seller = sale.seller || state.activeProfile;
   return state.flavors
     .map((f) => {
-      const rem = getFlavorRemainingExcludingSale(f.id, sale.id);
+      const rem = getSellerStockForSaleEdit(seller, f.id, sale);
       const ok = rem >= (sale.qty || 1) || f.id === current;
       const disabled = ok ? "" : " disabled";
       const selected = f.id === current ? " selected" : "";
-      const hint = ok ? ` (${rem} frei)` : " (zu wenig)";
+      const hint = ok ? ` (${rem} bei dir)` : " (zu wenig)";
       return `<option value="${escapeHtml(f.id)}"${selected}${disabled}>${escapeHtml(f.name)}${hint}</option>`;
     })
     .join("");
@@ -420,6 +450,95 @@ function saveOrdersToLocalStorage() {
   localStorage.setItem(LOCAL_ORDERS_KEY, JSON.stringify(state.orders));
 }
 
+function saveInventoryToLocalStorage() {
+  ensureInventoryShape();
+  localStorage.setItem(LOCAL_INVENTORY_KEY, JSON.stringify(state.inventory));
+}
+
+function loadInventoryFromLocalStorage() {
+  try {
+    const raw = localStorage.getItem(LOCAL_INVENTORY_KEY);
+    if (!raw) {
+      state.inventory = { Aron: {}, Mehmet: {} };
+      ensureInventoryShape();
+      return;
+    }
+    state.inventory = JSON.parse(raw);
+    ensureInventoryShape();
+  } catch (e) {
+    console.error(e);
+    state.inventory = { Aron: {}, Mehmet: {} };
+    ensureInventoryShape();
+  }
+}
+
+function applyInventoryFromRows(rows) {
+  state.inventory = { Aron: {}, Mehmet: {} };
+  for (const row of rows) {
+    if (!SELLER_NAMES.includes(row.seller)) continue;
+    state.inventory[row.seller][row.flavor_id] = Math.max(0, Number(row.qty) || 0);
+  }
+  ensureInventoryShape();
+  saveInventoryToLocalStorage();
+}
+
+async function loadAllInventory({ silent = false } = {}) {
+  if (useCloud && supabaseClient) {
+    const { data, error } = await supabaseClient.from("seller_inventory").select("*");
+
+    if (error) {
+      console.error(error);
+      loadInventoryFromLocalStorage();
+    } else {
+      applyInventoryFromRows(data || []);
+    }
+  } else {
+    loadInventoryFromLocalStorage();
+  }
+}
+
+async function persistSellerInventory(seller, flavorQtyMap) {
+  ensureInventoryShape();
+  for (const [flavorId, qty] of Object.entries(flavorQtyMap)) {
+    state.inventory[seller][flavorId] = Math.max(0, Number(qty) || 0);
+  }
+  saveInventoryToLocalStorage();
+
+  if (useCloud && supabaseClient) {
+    const rows = Object.entries(flavorQtyMap).map(([flavorId, qty]) => ({
+      seller,
+      flavor_id: flavorId,
+      qty: Math.max(0, Number(qty) || 0),
+      updated_at: new Date().toISOString(),
+    }));
+    const { error } = await supabaseClient
+      .from("seller_inventory")
+      .upsert(rows, { onConflict: "seller,flavor_id" });
+    if (error) throw error;
+  }
+}
+
+async function changeSellerStock(seller, flavorId, delta) {
+  ensureInventoryShape();
+  const next = Math.max(0, getSellerStock(seller, flavorId) + delta);
+  state.inventory[seller][flavorId] = next;
+  saveInventoryToLocalStorage();
+
+  if (useCloud && supabaseClient) {
+    const { error } = await supabaseClient.from("seller_inventory").upsert(
+      {
+        seller,
+        flavor_id: flavorId,
+        qty: next,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "seller,flavor_id" }
+    );
+    if (error) console.error(error);
+  }
+  return next;
+}
+
 function applyFlavorsFromDb(rows) {
   if (!rows?.length) return;
   state.flavors = rows
@@ -428,7 +547,6 @@ function applyFlavorsFromDb(rows) {
       name: r.name,
       initialQty: r.initial_qty,
       sortOrder: r.sort_order ?? 0,
-      holder: r.holder === "Mehmet" ? "Mehmet" : "Aron",
     }))
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
@@ -546,6 +664,15 @@ function initSupabase() {
             }
             refreshData({ silent: true });
           }
+        )
+        .subscribe();
+
+      supabaseClient
+        .channel("inventory-live")
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "seller_inventory" },
+          () => refreshData({ silent: true })
         )
         .subscribe();
     } catch (channelError) {
@@ -863,11 +990,13 @@ async function loadAllOrders({ silent = false } = {}) {
 async function refreshData({ silent = true } = {}) {
   await loadFlavorsCatalog();
   await loadShopSettings();
+  await loadAllInventory({ silent: true });
   await loadAllOrders({ silent: true });
   await loadAllSales({ silent });
   populateFlavorSelect();
   populateOrderFlavorSelect();
   renderFlavorStockLists();
+  renderMyStockForm();
   renderPendingOrders();
   updatePublicShopPriceUI();
   updateOrderTotalPreview();
@@ -901,39 +1030,118 @@ function updateTelemetry() {
   }
 }
 
-function flavorBarHtml(flavor, { showHolder = false } = {}) {
-  const remaining = getFlavorRemaining(flavor);
+function sellerStockBadgesHtml(flavorId, { compact = false } = {}) {
+  const { aron, mehmet } = getFlavorStockSplit(flavorId);
+  return `
+    <div class="flavor-stock-sellers ${compact ? "flavor-stock-sellers--compact" : ""}">
+      <div class="flavor-holder flavor-holder--aron${aron === 0 ? " flavor-holder--zero" : ""}">
+        <span class="flavor-holder-letter">A</span>
+        <span class="flavor-holder-qty">${formatNumber(aron)}</span>
+      </div>
+      <div class="flavor-holder flavor-holder--mehmet${mehmet === 0 ? " flavor-holder--zero" : ""}">
+        <span class="flavor-holder-letter">M</span>
+        <span class="flavor-holder-qty">${formatNumber(mehmet)}</span>
+      </div>
+    </div>
+  `;
+}
+
+function flavorBarHtml(flavor, { showSellers = false } = {}) {
+  const { aron, mehmet } = getFlavorStockSplit(flavor.id);
+  const totalStock = aron + mehmet;
   const reserved = getFlavorReservedQty(flavor.id);
+  const available = Math.max(0, totalStock - reserved);
   const pct = flavor.initialQty
-    ? Math.round((remaining / flavor.initialQty) * 100)
-    : 0;
-  const low = remaining <= 2 && remaining > 0;
-  const empty = remaining === 0;
+    ? Math.min(100, Math.round((totalStock / flavor.initialQty) * 100))
+    : totalStock > 0
+      ? 100
+      : 0;
+  const low = available <= 2 && available > 0;
+  const empty = available === 0;
   const reservedNote =
     reserved > 0
       ? `<span class="flavor-stock-reserved">${formatNumber(reserved)} reserviert</span>`
       : "";
-  const holder = getFlavorHolder(flavor);
-  const holderLetter = getHolderLetter(holder);
-  const holderClass = holder === "Mehmet" ? "mehmet" : "aron";
-  const holderBadge = showHolder
-    ? `<span class="flavor-holder flavor-holder--${holderClass}" title="Lagerort">${holderLetter}</span>`
-    : "";
+  const sellerBadges = showSellers ? sellerStockBadgesHtml(flavor.id) : "";
 
   return `
-    <div class="flavor-stock-row ${empty ? "flavor-stock-row--empty" : ""} ${low ? "flavor-stock-row--low" : ""} ${showHolder ? "flavor-stock-row--with-holder" : ""}">
-      ${holderBadge}
+    <div class="flavor-stock-row ${empty ? "flavor-stock-row--empty" : ""} ${low ? "flavor-stock-row--low" : ""} ${showSellers ? "flavor-stock-row--with-sellers" : ""}">
       <div class="flavor-stock-body">
         <div class="flavor-stock-head">
           <span class="flavor-stock-name">${escapeHtml(flavor.name)}</span>
-          <span class="flavor-stock-count">${formatNumber(remaining)} / ${formatNumber(flavor.initialQty)} ${reservedNote}</span>
+          <span class="flavor-stock-count">${formatNumber(available)} bestellbar · ${formatNumber(totalStock)} gesamt ${reservedNote}</span>
         </div>
-        <div class="flavor-stock-track" role="progressbar" aria-valuenow="${remaining}" aria-valuemin="0" aria-valuemax="${flavor.initialQty}">
+        ${sellerBadges}
+        <div class="flavor-stock-track" role="progressbar" aria-valuenow="${totalStock}" aria-valuemin="0" aria-valuemax="${flavor.initialQty}">
           <div class="flavor-stock-fill" style="width: ${pct}%"></div>
         </div>
       </div>
     </div>
   `;
+}
+
+function renderMyStockForm() {
+  if (!myStockGridEl || !state.activeProfile) return;
+
+  const seller = state.activeProfile;
+  myStockGridEl.innerHTML = state.flavors
+    .map((f) => {
+      const qty = getSellerStock(seller, f.id);
+      return `
+        <label class="my-stock-row">
+          <span class="my-stock-name">${escapeHtml(f.name)}</span>
+          <input
+            type="number"
+            min="0"
+            step="1"
+            class="my-stock-input"
+            data-flavor-id="${escapeHtml(f.id)}"
+            value="${qty}"
+          />
+        </label>
+      `;
+    })
+    .join("");
+}
+
+async function handleSaveMyStock(event) {
+  if (event) event.preventDefault();
+  if (!state.activeProfile || state.loading) return;
+
+  const seller = state.activeProfile;
+  const inputs = myStockGridEl?.querySelectorAll(".my-stock-input");
+  if (!inputs?.length) return;
+
+  const flavorQtyMap = {};
+  for (const input of inputs) {
+    const id = input.getAttribute("data-flavor-id");
+    const val = parseInt(input.value, 10);
+    flavorQtyMap[id] = isNaN(val) || val < 0 ? 0 : val;
+  }
+
+  setLoading(true);
+  if (myStockFeedbackEl) {
+    myStockFeedbackEl.textContent = "Speichere Lager…";
+    myStockFeedbackEl.classList.remove("error");
+  }
+
+  try {
+    await persistSellerInventory(seller, flavorQtyMap);
+    renderFlavorStockLists();
+    populateFlavorSelect();
+    populateOrderFlavorSelect();
+    if (myStockFeedbackEl) {
+      myStockFeedbackEl.textContent = "Lager gespeichert.";
+    }
+  } catch (err) {
+    console.error(err);
+    if (myStockFeedbackEl) {
+      myStockFeedbackEl.textContent = "Fehler: " + err.message;
+      myStockFeedbackEl.classList.add("error");
+    }
+  } finally {
+    setLoading(false);
+  }
 }
 
 function getFlavorSalesMatrix() {
@@ -1011,8 +1219,8 @@ function scrollToSellerCharts() {
 }
 
 function renderFlavorStockLists() {
-  const publicHtml = state.flavors.map((f) => flavorBarHtml(f, { showHolder: true })).join("");
-  const sellerHtml = state.flavors.map((f) => flavorBarHtml(f)).join("");
+  const publicHtml = state.flavors.map((f) => flavorBarHtml(f, { showSellers: true })).join("");
+  const sellerHtml = state.flavors.map((f) => flavorBarHtml(f, { showSellers: true })).join("");
 
   if (publicFlavorStockEl) {
     publicFlavorStockEl.innerHTML =
@@ -1025,12 +1233,14 @@ function renderFlavorStockLists() {
 
 function populateFlavorSelect() {
   if (!saleFlavorSelect) return;
+  const seller = state.activeProfile;
 
   const options = state.flavors
     .map((f) => {
-      const rem = getFlavorRemaining(f);
+      const rem = seller ? getSellerStock(seller, f.id) : getFlavorRemaining(f);
+      const hint = seller ? ` (${rem} bei dir)` : ` (${rem} gesamt)`;
       const disabled = rem === 0 ? " disabled" : "";
-      return `<option value="${escapeHtml(f.id)}"${disabled}>${escapeHtml(f.name)} (${rem} übrig)</option>`;
+      return `<option value="${escapeHtml(f.id)}"${disabled}>${escapeHtml(f.name)}${hint}</option>`;
     })
     .join("");
 
@@ -1517,6 +1727,19 @@ function readSaleFormValues() {
     return { error: "Bitte gültigen Preis und Menge eingeben.", focus: priceEl };
   }
 
+  const profileName = getActiveProfileName();
+  if (!profileName) {
+    return { error: "Bitte zuerst ein Verkäufer-Profil wählen." };
+  }
+
+  const myStock = getSellerStock(profileName, flavorId);
+  if (qty > myStock) {
+    return {
+      error: `Du hast nur noch ${myStock}× ${flavor.name} auf Lager.`,
+      focus: qtyEl,
+    };
+  }
+
   const remaining = getFlavorRemaining(flavor);
   if (qty > remaining) {
     return {
@@ -1561,10 +1784,12 @@ function saveSaleLocally(profileName, form) {
   getProfile(profileName).sales.push(sale);
   recalculateTotals(getProfile(profileName));
   saveToLocalStorage();
-  updateUI();
-  renderFlavorStockLists();
-  populateFlavorSelect();
   return sale;
+}
+
+async function finalizeSaleRecorded(profileName, form) {
+  await changeSellerStock(profileName, form.flavorId, -form.qty);
+  updateUI();
 }
 
 async function handleSaleSubmit(event) {
@@ -1610,12 +1835,14 @@ async function handleSaleSubmit(event) {
       if (error) {
         console.error(error);
         saveSaleLocally(profileName, form);
+        await finalizeSaleRecorded(profileName, form);
         showSaleFeedback(
           "Cloud-Fehler – lokal gespeichert: " + error.message,
           true
         );
         setSyncStatus("CLOUD FEHLER", "error");
       } else {
+        await changeSellerStock(profileName, form.flavorId, -form.qty);
         await loadAllSales({ silent: true });
         populateFlavorSelect();
         showSaleFeedback(`Verkauf gespeichert: ${form.flavorName}`);
@@ -1623,6 +1850,7 @@ async function handleSaleSubmit(event) {
       }
     } else {
       saveSaleLocally(profileName, form);
+      await finalizeSaleRecorded(profileName, form);
       showSaleFeedback(`Verkauf gespeichert: ${form.flavorName}`);
     }
 
@@ -1664,15 +1892,15 @@ async function deleteSale(saleId) {
       return;
     }
 
+    await changeSellerStock(sale.seller, sale.flavor, sale.qty);
     await loadAllSales({ silent: true });
     populateFlavorSelect();
   } else {
     profile.sales = profile.sales.filter((s) => s.id !== saleId);
     recalculateTotals(profile);
     saveToLocalStorage();
+    await changeSellerStock(sale.seller, sale.flavor, sale.qty);
     updateUI();
-    renderFlavorStockLists();
-    populateFlavorSelect();
     setLoading(false);
   }
 }
@@ -1695,10 +1923,10 @@ async function updateSaleFlavor(saleId, newFlavorId, selectEl) {
     return;
   }
 
-  const available = getFlavorRemainingExcludingSale(newFlavorId, saleId);
+  const available = getSellerStockForSaleEdit(sale.seller, newFlavorId, null);
   if ((sale.qty || 1) > available) {
     alert(
-      `Nur noch ${available}× ${flavor.name} verfügbar — Sorte kann nicht zugewiesen werden.`
+      `Nur noch ${available}× ${flavor.name} in deinem Lager — Sorte kann nicht zugewiesen werden.`
     );
     if (selectEl) selectEl.value = prevFlavor;
     return;
@@ -1720,6 +1948,8 @@ async function updateSaleFlavor(saleId, newFlavorId, selectEl) {
       return;
     }
 
+    if (prevFlavor) await changeSellerStock(sale.seller, prevFlavor, sale.qty);
+    await changeSellerStock(sale.seller, newFlavorId, -sale.qty);
     await loadAllSales({ silent: true });
     populateFlavorSelect();
     showSaleFeedback(`Sorte geändert: ${flavor.name}`);
@@ -1727,6 +1957,8 @@ async function updateSaleFlavor(saleId, newFlavorId, selectEl) {
     return;
   }
 
+  if (prevFlavor) await changeSellerStock(sale.seller, prevFlavor, sale.qty);
+  await changeSellerStock(sale.seller, newFlavorId, -sale.qty);
   sale.flavor = newFlavorId;
   saveToLocalStorage();
   updateUI();
@@ -1995,6 +2227,7 @@ function updateUI() {
   updateStats();
   renderFlavorStockLists();
   renderFlavorSalesMatrix();
+  renderMyStockForm();
   populateFlavorSelect();
   populateOrderFlavorSelect();
   renderPendingOrders();
@@ -2050,6 +2283,8 @@ function bindDomRefs() {
   pendingOrdersListEl = document.getElementById("pendingOrdersList");
   pendingOrdersBadgeEl = document.getElementById("pendingOrdersBadge");
   flavorSalesMatrixEl = document.getElementById("flavorSalesMatrix");
+  myStockGridEl = document.getElementById("myStockGrid");
+  myStockFeedbackEl = document.getElementById("myStockFeedback");
   enableNotifyBtn = document.getElementById("enableNotifyBtn");
   orderToastEl = document.getElementById("orderToast");
   orderToastTextEl = document.getElementById("orderToastText");
@@ -2079,6 +2314,12 @@ function setupEvents() {
   });
 
   document.getElementById("skipToChartsBtn")?.addEventListener("click", scrollToSellerCharts);
+
+  document.getElementById("myStockForm")?.addEventListener("submit", handleSaveMyStock);
+  document.getElementById("saveMyStockBtn")?.addEventListener("click", (e) => {
+    e.preventDefault();
+    handleSaveMyStock(e);
+  });
 
   document.getElementById("orderToastDismiss")?.addEventListener("click", () => {
     orderToastEl?.classList.add("hidden");
@@ -2154,6 +2395,7 @@ async function bootApp() {
     bindDomRefs();
     loadFromLocalStorage();
     loadOrdersFromLocalStorage();
+    loadInventoryFromLocalStorage();
     await initApp();
   } catch (err) {
     console.error("Init fehlgeschlagen:", err);

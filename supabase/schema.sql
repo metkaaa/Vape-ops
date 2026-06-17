@@ -23,38 +23,46 @@ create index if not exists sales_seller_created_idx
 create index if not exists sales_flavor_idx
   on public.sales (flavor);
 
--- ── 2. Geschmacks-Sorten (Startbestand) ──
+-- ── 2. Geschmacks-Sorten (Referenz / Anzeige) ──
 create table if not exists public.flavors (
   id text primary key,
   name text not null,
   initial_qty integer not null check (initial_qty > 0),
-  sort_order integer not null default 0,
-  holder text not null default 'Aron' check (holder in ('Aron', 'Mehmet'))
+  sort_order integer not null default 0
 );
 
-alter table public.flavors add column if not exists holder text not null default 'Aron';
-
-insert into public.flavors (id, name, initial_qty, sort_order, holder) values
-  ('cherry', 'Cherry', 10, 1, 'Aron'),
-  ('strawberry-ice', 'Strawberry Ice', 10, 2, 'Mehmet'),
-  ('pink-lemonade', 'Pink Lemonade', 10, 3, 'Aron'),
-  ('blueberry-on-ice', 'Blueberry on Ice', 10, 4, 'Mehmet'),
-  ('kiwi-passionfruit-guava', 'Kiwi Passionfruit Guava', 10, 5, 'Aron'),
-  ('strawberry-kiwi', 'Strawberry Kiwi', 10, 6, 'Mehmet'),
-  ('peach-ice', 'Peach Ice', 10, 7, 'Aron'),
-  ('blue-razz-lemonade', 'Blue Razz Lemonade', 10, 8, 'Mehmet'),
-  ('blue-sour-raspberry', 'Blue Sour Raspberry', 10, 9, 'Aron'),
-  ('blueberry-cherry-cranberry', 'Blueberry Cherry Cranberry', 10, 10, 'Mehmet'),
-  ('cherry-berry', 'Cherry Berry', 10, 11, 'Aron'),
-  ('bingo-crush', 'Bingo Crush', 10, 12, 'Mehmet'),
-  ('pineapple-ice', 'Pineapple Ice', 10, 13, 'Aron'),
-  ('strawberry-grape', 'Strawberry Grape', 20, 14, 'Mehmet'),
-  ('fruity-fusion', 'Fruity Fusion', 10, 15, 'Aron')
+insert into public.flavors (id, name, initial_qty, sort_order) values
+  ('cherry', 'Cherry', 10, 1),
+  ('strawberry-ice', 'Strawberry Ice', 10, 2),
+  ('pink-lemonade', 'Pink Lemonade', 10, 3),
+  ('blueberry-on-ice', 'Blueberry on Ice', 10, 4),
+  ('kiwi-passionfruit-guava', 'Kiwi Passionfruit Guava', 10, 5),
+  ('strawberry-kiwi', 'Strawberry Kiwi', 10, 6),
+  ('peach-ice', 'Peach Ice', 10, 7),
+  ('blue-razz-lemonade', 'Blue Razz Lemonade', 10, 8),
+  ('blue-sour-raspberry', 'Blue Sour Raspberry', 10, 9),
+  ('blueberry-cherry-cranberry', 'Blueberry Cherry Cranberry', 10, 10),
+  ('cherry-berry', 'Cherry Berry', 10, 11),
+  ('bingo-crush', 'Bingo Crush', 10, 12),
+  ('pineapple-ice', 'Pineapple Ice', 10, 13),
+  ('strawberry-grape', 'Strawberry Grape', 20, 14),
+  ('fruity-fusion', 'Fruity Fusion', 10, 15)
 on conflict (id) do update set
   name = excluded.name,
   initial_qty = excluded.initial_qty,
-  sort_order = excluded.sort_order,
-  holder = excluded.holder;
+  sort_order = excluded.sort_order;
+
+-- ── 2b. Verkäufer-Lager (jeder trägt eigenen Bestand ein) ──
+create table if not exists public.seller_inventory (
+  seller text not null check (seller in ('Aron', 'Mehmet')),
+  flavor_id text not null references public.flavors (id) on delete cascade,
+  qty integer not null default 0 check (qty >= 0),
+  updated_at timestamptz not null default now(),
+  primary key (seller, flavor_id)
+);
+
+create index if not exists seller_inventory_flavor_idx
+  on public.seller_inventory (flavor_id);
 
 -- ── 3. Kundenbestellungen (Shop, getrennt von sales) ──
 create table if not exists public.orders (
@@ -89,6 +97,7 @@ on conflict (id) do nothing;
 -- ── 5. Row Level Security ──
 alter table public.sales enable row level security;
 alter table public.flavors enable row level security;
+alter table public.seller_inventory enable row level security;
 alter table public.orders enable row level security;
 alter table public.shop_settings enable row level security;
 
@@ -108,6 +117,17 @@ create policy "sales_delete" on public.sales
 drop policy if exists "flavors_select" on public.flavors;
 create policy "flavors_select" on public.flavors for select using (true);
 
+drop policy if exists "seller_inventory_select" on public.seller_inventory;
+drop policy if exists "seller_inventory_upsert" on public.seller_inventory;
+drop policy if exists "seller_inventory_insert" on public.seller_inventory;
+drop policy if exists "seller_inventory_update" on public.seller_inventory;
+
+create policy "seller_inventory_select" on public.seller_inventory for select using (true);
+create policy "seller_inventory_insert" on public.seller_inventory
+  for insert to authenticated with check (true);
+create policy "seller_inventory_update" on public.seller_inventory
+  for update to authenticated using (true);
+
 drop policy if exists "orders_select" on public.orders;
 drop policy if exists "orders_insert" on public.orders;
 drop policy if exists "orders_update" on public.orders;
@@ -123,4 +143,4 @@ drop policy if exists "shop_settings_update" on public.shop_settings;
 create policy "shop_settings_select" on public.shop_settings for select using (true);
 create policy "shop_settings_update" on public.shop_settings for update using (true);
 
--- Realtime (optional): Database → Replication → sales, orders, shop_settings aktivieren
+-- Realtime (optional): sales, orders, seller_inventory, shop_settings aktivieren

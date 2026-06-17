@@ -65,7 +65,7 @@
               <span class="step-num">2</span>
               <h2 id="stockHeading" class="shop-block-title">Lager</h2>
             </div>
-            <p class="shop-block-hint">Was noch da ist (live) · <span class="holder-legend"><span class="holder-legend-a">A</span> / <span class="holder-legend-m">M</span> = Lagerort</span></p>
+            <p class="shop-block-hint">Live-Bestand · <span class="holder-legend"><span class="holder-legend-a">A</span> / <span class="holder-legend-m">M</span> = Stück bei wem</span></p>
             <div id="publicFlavorStock" class="flavor-stock-list flavor-stock-list--grid"></div>
           </section>
 
@@ -238,6 +238,20 @@
                 Profil wechseln
               </button>
             </div>
+          </section>
+
+          <section class="panel my-stock-panel panel--priority">
+            <div class="panel-header">
+              <h2 class="panel-title">Mein Lager</h2>
+              <p class="panel-desc">Trag ein, wie viele du noch von jeder Sorte hast</p>
+            </div>
+            <form id="myStockForm" class="my-stock-form">
+              <div id="myStockGrid" class="my-stock-grid"></div>
+              <button type="submit" id="saveMyStockBtn" class="primary-button my-stock-save">
+                Lager speichern
+              </button>
+            </form>
+            <p id="myStockFeedback" class="sale-feedback" aria-live="polite"></p>
           </section>
 
           <section class="panel orders-panel panel--priority">
